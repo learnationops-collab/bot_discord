@@ -3,7 +3,7 @@ from dotenv import load_dotenv
 import discord
 from discord.ext import commands
 import pandas as pd
-import gspread # Librería para interactuar con Google Sheets (ahora opcional para la demo)
+# import gspread # Librería para interactuar con Google Sheets (ahora opcional para la demo)
 
 # Carga las variables de entorno desde el archivo .env
 load_dotenv()
@@ -11,13 +11,15 @@ TOKEN = os.getenv('TOKEN')
 
 # Configura los intents (permisos) para tu bot
 # message_content es crucial para que el bot pueda leer el contenido de los mensajes (comandos)
+# members es necesario si planeas implementar un mensaje automático al unirse un nuevo miembro
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True # Asegúrate de que este intent esté habilitado en el Portal de Desarrolladores de Discord
 
 # Inicializa el bot con un prefijo de comando y los intents
 bot = commands.Bot(command_prefix='&', intents=intents)
 
-# Evento que se dispara cuando el bot está listo y conectado a Discord
+# --- Evento que se dispara cuando el bot está listo y conectado a Discord ---
 @bot.event
 async def on_ready():
     """
@@ -27,6 +29,11 @@ async def on_ready():
     print(f'Bot conectado como {bot.user}')
     print(f'ID del bot: {bot.user.id}')
     print('------')
+    # Puedes enviar un mensaje a un canal específico aquí al iniciar el bot,
+    # por ejemplo, para un canal de bienvenida o de logs.
+    # channel = bot.get_channel(YOUR_CHANNEL_ID) # Reemplaza YOUR_CHANNEL_ID con el ID de tu canal
+    # if channel:
+    #     await channel.send("¡Hola a todos! Estoy listo para ayudar. Usa `&iniciar` para comenzar.")
 
 # --- Función de REPORTE ---
 @bot.command(name='reporte', help='Genera un análisis básico de una tabla (actualmente con datos ficticios).')
@@ -168,5 +175,141 @@ async def limpiar_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.send("❌ Error: Faltan argumentos. Usa `&limpiar <cantidad>` para eliminar un número específico de mensajes.")
 
-# Inicia el bot con el token cargado
+# --- NUEVAS FUNCIONALIDADES: Interacción con botones ---
+
+# Clase para la vista de selección de recursos
+class ResourcesView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=180) # La vista expira después de 3 minutos de inactividad
+        # Los botones se añaden automáticamente a través de los decoradores @discord.ui.button
+        # Por lo tanto, no es necesario usar self.add_item() aquí.
+        # self.add_item(discord.ui.Button(label="Guías de Estudio", style=discord.ButtonStyle.secondary, custom_id="study_guides"))
+        # self.add_item(discord.ui.Button(label="Material de Apoyo", style=discord.ButtonStyle.secondary, custom_id="support_material"))
+        # self.add_item(discord.ui.Button(label="Preguntas Frecuentes (FAQ)", style=discord.ButtonStyle.secondary, custom_id="faq"))
+
+    async def on_timeout(self):
+        # Deshabilita los botones cuando la vista expira para evitar interacciones con botones inactivos
+        for item in self.children:
+            item.disabled = True
+        # Edita el mensaje original para indicar que la interacción ha terminado
+        if hasattr(self, 'message'):
+            await self.message.edit(content="La selección de recursos ha expirado. Si necesitas más ayuda, usa `&iniciar` de nuevo.", view=self)
+
+    @discord.ui.button(label="Guías de Estudio", style=discord.ButtonStyle.secondary, custom_id="study_guides")
+    async def study_guides_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Maneja la interacción cuando se hace clic en el botón 'Guías de Estudio'."""
+        await interaction.response.send_message(
+            "Aquí tienes algunas guías de estudio útiles: "
+            "[Guía 1 sobre Neurociencia Cognitiva](https://www.ejemplo.com/guia1), "
+            "[Guía 2 sobre Métodos de Estudio Efectivos](https://www.ejemplo.com/guia2)\n"
+            "¡Esperamos que te sean de gran ayuda!",
+            ephemeral=False # False para que todos en el canal puedan ver la respuesta
+        )
+        # Opcional: Deshabilitar los botones después de la selección para evitar múltiples clics
+        # for item in self.children:
+        #     item.disabled = True
+        # await interaction.message.edit(view=self)
+
+    @discord.ui.button(label="Material de Apoyo", style=discord.ButtonStyle.secondary, custom_id="support_material")
+    async def support_material_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Maneja la interacción cuando se hace clic en el botón 'Material de Apoyo'."""
+        await interaction.response.send_message(
+            "Accede a nuestro material de apoyo complementario aquí: "
+            "[Colección de Artículos y Videos](https://www.ejemplo.com/material_apoyo)\n"
+            "Este material está diseñado para reforzar tu aprendizaje.",
+            ephemeral=False
+        )
+        # Opcional: Deshabilitar los botones después de la selección para evitar múltiples clics
+        # for item in self.children:
+        #     item.disabled = True
+        # await interaction.message.edit(view=self)
+
+    @discord.ui.button(label="Preguntas Frecuentes (FAQ)", style=discord.ButtonStyle.secondary, custom_id="faq")
+    async def faq_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Maneja la interacción cuando se hace clic en el botón 'Preguntas Frecuentes (FAQ)'."""
+        await interaction.response.send_message(
+            "Consulta nuestras Preguntas Frecuentes para encontrar respuestas rápidas a las dudas más comunes: "
+            "[Ir a la Sección de Preguntas Frecuentes](https://www.ejemplo.com/faq_neurocogniciones)\n"
+            "Es posible que tu pregunta ya esté resuelta allí.",
+            ephemeral=False
+        )
+        # Opcional: Deshabilitar los botones después de la selección para evitar múltiples clics
+        # for item in self.children:
+        #     item.disabled = True
+        # await interaction.message.edit(view=self)
+
+# Clase para el menú principal con botones
+class MainMenuView(discord.ui.View):
+    def __init__(self):
+        super().__init__(timeout=180) # La vista expira después de 3 minutos de inactividad
+        # Los botones se añaden automáticamente a través de los decoradores @discord.ui.button
+
+    async def on_timeout(self):
+        """Se llama cuando la vista expira por inactividad."""
+        # Deshabilita todos los botones de la vista
+        for item in self.children:
+            item.disabled = True
+        # Edita el mensaje original para indicar que la interacción ha expirado
+        if hasattr(self, 'message'):
+            await self.message.edit(content="La interacción ha expirado. Si necesitas ayuda, usa `&iniciar` de nuevo.", view=self)
+
+    @discord.ui.button(label="Ayuda Técnica", style=discord.ButtonStyle.primary, custom_id="technical_help")
+    async def technical_help_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Maneja la interacción cuando se hace clic en el botón 'Ayuda Técnica'."""
+        await interaction.response.send_message(
+            "Por favor, describe tu problema técnico brevemente. "
+            "Nuestro equipo revisará tu caso y te contactará si es necesario. "
+            "Puedes escribir tu problema directamente en el chat.",
+            ephemeral=False
+        )
+        # Para una implementación más avanzada, aquí podrías:
+        # 1. Usar un `discord.ui.Modal` para recopilar una descripción estructurada.
+        # 2. Usar `bot.wait_for('message')` para esperar la siguiente respuesta del usuario en el canal.
+        # 3. Integrar con una base de conocimientos o un modelo de lenguaje para respuestas automáticas a problemas comunes.
+
+    @discord.ui.button(label="Necesito un Recurso", style=discord.ButtonStyle.success, custom_id="request_resource")
+    async def request_resource_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Maneja la interacción cuando se hace clic en el botón 'Necesito un Recurso'."""
+        # Crea una nueva vista con opciones de recursos y la envía
+        resources_view = ResourcesView()
+        # Asigna el mensaje para que on_timeout pueda editarlo
+        resources_view.message = await interaction.response.send_message(
+            "¿Qué tipo de recurso necesitas?",
+            view=resources_view,
+            ephemeral=False
+        )
+
+    @discord.ui.button(label="Hablar con un Humano", style=discord.ButtonStyle.danger, custom_id="human_contact")
+    async def human_contact_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Maneja la interacción cuando se hace clic en el botón 'Hablar con un Humano'."""
+        # Inicia el flujo de preguntas para el contacto humano
+        await interaction.response.send_message(
+            "Para poder ayudarte mejor y que un miembro de nuestro equipo te contacte, "
+            "por favor, responde a las siguientes preguntas en mensajes separados en este chat:",
+            ephemeral=False
+        )
+        # Usamos followups para enviar cada pregunta de forma secuencial
+        await interaction.followup.send("1. ¿Cuál es el problema principal que tienes?", ephemeral=False)
+        await interaction.followup.send("2. ¿Qué soluciones has intentado hasta ahora?", ephemeral=False)
+        await interaction.followup.send("3. ¿Estás comprometido/a a seguir las indicaciones para resolverlo?", ephemeral=False)
+        await interaction.followup.send(
+            "Una vez que hayas respondido a estas preguntas, un miembro de nuestro equipo "
+            "revisará tu caso y se pondrá en contacto contigo pronto. ¡Gracias por tu paciencia!",
+            ephemeral=False
+        )
+        # Aquí, en una implementación real, podrías registrar estas preguntas y las respuestas
+        # del usuario en una base de datos o enviarlas a un canal de soporte específico para los CSM.
+
+# Comando para iniciar la interacción con el bot
+@bot.command(name='iniciar', help='Inicia la interacción guiada con el bot.')
+async def iniciar(ctx):
+    """
+    Inicia la interacción guiada con el bot, presentando opciones con botones.
+    """
+    view = MainMenuView()
+    # Almacena el mensaje para que la vista pueda editarlo en caso de timeout
+    view.message = await ctx.send("Hola, soy el Bot de Neurocogniciones. ¿Cómo puedo ayudarte hoy?", view=view)
+
+# --- Inicia el bot con el token cargado ---
+# Asegúrate de que tu archivo .env contenga una línea como: TOKEN=TU_TOKEN_DE_DISCORD
 bot.run(TOKEN)
