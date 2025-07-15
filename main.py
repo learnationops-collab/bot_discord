@@ -133,11 +133,11 @@ async def reporte_error(ctx, error):
     if isinstance(error, commands.MissingRequiredArgument):
         await ctx.send("❌ Error: Faltan argumentos. Usa `&reporte <link_google_sheets> <nombre_hoja>` para generar el reporte.")
 
-# --- Función de AYUDA personalizada ---
-@bot.command(name='ayuda', help='Muestra información sobre los comandos disponibles y cómo usarlos.')
-async def ayuda(ctx):
+# --- Función auxiliar para generar el mensaje de ayuda ---
+# Esto permite reutilizar el mensaje de ayuda sin depender de un objeto ctx.
+def _get_help_message():
     """
-    Muestra los comandos disponibles del bot y una breve descripción de cómo usarlos.
+    Genera el mensaje de ayuda con los comandos disponibles del bot.
     """
     help_message = "**🤖 Comandos disponibles de Neurocogniciones Bot:**\n\n"
     
@@ -158,8 +158,15 @@ async def ayuda(ctx):
     help_message += "\n**Ejemplos de uso:**\n"
     help_message += "`&reporte <link_google_sheets> <nombre_hoja>` - Genera un análisis de la hoja 'MiHoja' en el Google Sheet proporcionado (actualmente con datos ficticios).\n"
     help_message += "`&ayuda` - Muestra este mensaje de ayuda."
+    return help_message
 
-    await ctx.send(help_message)
+# --- Función de AYUDA personalizada ---
+@bot.command(name='ayuda', help='Muestra información sobre los comandos disponibles y cómo usarlos.')
+async def ayuda(ctx):
+    """
+    Muestra los comandos disponibles del bot y una breve descripción de cómo usarlos.
+    """
+    await ctx.send(_get_help_message())
 
 # --- Limpiar mensajes ---
 @bot.command(name='limpiar', help='Elimina un número específico de mensajes del canal.')
@@ -309,6 +316,46 @@ async def iniciar(ctx):
     view = MainMenuView()
     # Almacena el mensaje para que la vista pueda editarlo en caso de timeout
     view.message = await ctx.send("Hola, soy el Bot de Neurocogniciones. ¿Cómo puedo ayudarte hoy?", view=view)
+
+# --- NUEVA FUNCIONALIDAD: Mensaje de bienvenida automático en canal 'nuevo_ingreso' ---
+@bot.event
+async def on_member_join(member):
+    """
+    Se dispara cuando un nuevo miembro se une al servidor.
+    Envía un mensaje de bienvenida y las indicaciones de uso del bot
+    si el miembro se une al canal 'nuevo_ingreso'.
+    """
+    # Reemplaza YOUR_NUEVO_INGRESO_CHANNEL_ID con el ID real de tu canal 'nuevo_ingreso'
+    # Puedes obtener el ID haciendo clic derecho en el canal en Discord (con el Modo Desarrollador activado) y seleccionando "Copiar ID".
+    NUEVO_INGRESO_CHANNEL_ID = 1394791387945242806 # <-- ¡IMPORTANTE: Reemplaza este valor!
+
+    # Asegúrate de que el miembro no sea el propio bot
+    if member.bot:
+        return
+
+    channel = bot.get_channel(NUEVO_INGRESO_CHANNEL_ID)
+    if channel:
+        welcome_message = (
+            f"¡Bienvenido/a al servidor de Neurocogniciones, {member.mention}!\n"
+            "Soy el Bot de Neurocogniciones y estoy aquí para ayudarte.\n\n"
+            "Para comenzar, puedes usar el comando `&iniciar` para interactuar con nuestros menús de ayuda.\n\n"
+            "Aquí tienes una guía rápida de cómo usarme:\n"
+        )
+        help_content = _get_help_message() # Obtiene el contenido de la función de ayuda
+        await channel.send(welcome_message + help_content)
+
+# --- Comando TEMPORAL para simular la bienvenida ---
+@bot.command(name='simular_bienvenida', help='[SOLO PARA PRUEBAS] Simula la bienvenida de un nuevo miembro.')
+@commands.is_owner() # Opcional: Solo el dueño del bot puede usar este comando
+async def simular_bienvenida(ctx):
+    """
+    Simula el evento on_member_join para el usuario que ejecuta el comando.
+    Útil para probar la bienvenida sin invitar a un nuevo usuario.
+    """
+    # Llama directamente a la función on_member_join con el autor del mensaje
+    await on_member_join(ctx.author)
+    await ctx.send(f"✅ Se ha simulado la bienvenida para {ctx.author.display_name} en el canal configurado.", delete_after=5)
+
 
 # --- Inicia el bot con el token cargado ---
 # Asegúrate de que tu archivo .env contenga una línea como: TOKEN=TU_TOKEN_DE_DISCORD
