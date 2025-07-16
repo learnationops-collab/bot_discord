@@ -404,11 +404,11 @@ async def on_message(message):
                 
                 user_conversations[user_id]['channel_id'] = new_human_channel.id # Guardar el ID del canal creado
 
+                # MENSAJE CORREGIDO: Eliminar 'ephemeral=False' de message.channel.send
                 await message.channel.send(
                     f"¡Gracias por tus respuestas, {message.author.mention}! He creado un canal privado para que nuestro equipo de atención al cliente te asista: {new_human_channel.mention}\n"
                     "Por favor, dirígete a ese canal. Un miembro del equipo revisará la información y se pondrá en contacto contigo pronto.\n\n"
-                    "Para salir de este canal y cerrarlo cuando tu problema esté resuelto, usa el botón 'Cerrar Ticket' o el comando `&cerrar_ticket`.",
-                    ephemeral=False # Para que todos vean que se creó el ticket
+                    "Para salir de este canal y cerrarlo cuando tu problema esté resuelto, usa el botón 'Cerrar Ticket' o el comando `&cerrar_ticket`."
                 )
 
                 # Publicar las respuestas en el nuevo canal de atención al cliente
