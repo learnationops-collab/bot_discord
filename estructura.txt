@@ -1,0 +1,20 @@
+.
+├── .env
+├── bot.py                      # Nuevo archivo principal del bot (anteriormente main.py)
+├── config.py                   # Gestión de variables de entorno y IDs
+├── cogs/                       # Módulos principales del bot (cogs de Discord.py)
+│   ├── __init__.py
+│   ├── events.py                   # Manejadores de eventos (ej. on_member_join)
+│   ├── commands.py                 # Comandos generales (ej. iniciar, reporte, cancelar)
+│   ├── ticket_management.py        # Lógica de gestión de tickets y canales de soporte
+│   ├── human_interaction.py        # Flujo de conversación "Hablar con un Humano"
+│   └── resources.py                # Gestión de problemas, recursos y flujos de usuario
+├── database/                   # Módulo para la interacción con la base de datos
+│   ├── __init__.py
+│   └── db_manager.py               # Lógica para PostgreSQL y gestión de recursos
+├── views/                      # Componentes de la interfaz de usuario (Discord Views)
+│   ├── __init__.py
+│   └── main_menu.py                # Vistas y botones del menú principal
+└── utils/                      # Funciones de utilidad y helpers
+    ├── __init__.py
+    └── helpers.py                  # Funciones auxiliares (ej. _get_help_message)
