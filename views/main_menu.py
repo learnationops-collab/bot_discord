@@ -3,6 +3,11 @@
 import discord
 import asyncio
 import config # Importa la configuración para acceder a user_conversations
+# Importamos el DBManager para interactuar con la base de datos de recursos
+from database.db_manager import DBManager
+
+# Instancia global del DBManager para ser utilizada por las vistas
+db_manager = DBManager()
 
 class CloseTicketView(discord.ui.View):
     """
@@ -11,6 +16,24 @@ class CloseTicketView(discord.ui.View):
     def __init__(self, channel_to_close: discord.TextChannel):
         super().__init__(timeout=300) # 5 minutos de timeout para el botón
         self.channel_to_close = channel_to_close
+        self.message = None # Para almacenar el mensaje y poder eliminarlo
+
+    async def on_timeout(self):
+        """
+        Se ejecuta cuando el tiempo de espera de la vista ha expirado.
+        Deshabilita todos los botones y elimina el mensaje.
+        """
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(content="Este mensaje de cierre de ticket ha expirado.", view=self)
+                await asyncio.sleep(5) # Dar tiempo al usuario para ver el mensaje
+                await self.message.delete()
+            except discord.NotFound:
+                print("Mensaje de CloseTicketView no encontrado al intentar editar/eliminar en timeout.")
+            except Exception as e:
+                print(f"Error al editar/eliminar mensaje de CloseTicketView en timeout: {e}")
 
     @discord.ui.button(label="Cerrar Ticket", style=discord.ButtonStyle.red, custom_id="close_ticket")
     async def close_ticket_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -32,6 +55,528 @@ class CloseTicketView(discord.ui.View):
             await interaction.followup.send(f"❌ Ocurrió un error al intentar cerrar el canal: `{e}`", ephemeral=True)
             print(f"Error al cerrar el canal {self.channel_to_close.name}: {e}")
 
+
+class ResourceDisplayView(discord.ui.View):
+    """
+    Vista para mostrar los recursos finales encontrados.
+    """
+    def __init__(self, resources: list, current_difficulty: str, current_category: str, current_subcategory: str = None):
+        super().__init__(timeout=180) # 3 minutos de timeout
+        self.resources = resources
+        self.current_difficulty = current_difficulty
+        self.current_category = current_category
+        self.current_subcategory = current_subcategory
+        self.message = None # Para almacenar el mensaje y poder eliminarlo
+
+    async def on_timeout(self):
+        """
+        Se ejecuta cuando el tiempo de espera de la vista ha expirado.
+        Deshabilita todos los botones y elimina el mensaje.
+        """
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(content="La interacción de recursos ha expirado. Este mensaje se eliminará en breve.", view=self)
+                await asyncio.sleep(5) # Dar tiempo al usuario para leer
+                await self.message.delete()
+            except discord.NotFound:
+                print("Mensaje de ResourceDisplayView no encontrado al intentar editar/eliminar en timeout.")
+            except Exception as e:
+                print(f"Error al editar/eliminar mensaje de ResourceDisplayView en timeout: {e}")
+
+    async def send_resources(self, interaction: discord.Interaction):
+        """
+        Envía el mensaje con los recursos encontrados.
+        """
+        if self.resources:
+            response_message = f"📚 **Recursos encontrados para '{self.current_category}'"
+            if self.current_subcategory:
+                response_message += f" (Subcategoría: '{self.current_subcategory}')"
+            response_message += f" (Dificultad: '{self.current_difficulty}'):**\n\n"
+
+            for i, res in enumerate(self.resources):
+                response_message += (
+                    f"**{i+1}. {res['resource_name']}**\n"
+                    f"   Enlace: <{res['link']}>\n"
+                    f"   Categoría: `{res['category']}`\n"
+                )
+                if res['subcategory']:
+                    response_message += f"   Subcategoría: `{res['subcategory']}`\n"
+                response_message += f"   Dificultad: `{res['difficulty']}`\n\n"
+            
+            # Dividir el mensaje si es demasiado largo para Discord
+            if len(response_message) > 2000:
+                self.message = await interaction.followup.send(response_message[:1990] + "...\n(Mensaje truncado. Por favor, refina tu búsqueda.)", view=self)
+            else:
+                self.message = await interaction.followup.send(response_message, view=self)
+        else:
+            self.message = await interaction.followup.send(
+                f"No se encontraron recursos para la dificultad `{self.current_difficulty}`, "
+                f"categoría `{self.current_category}`"
+                f"{f' y subcategoría `{self.current_subcategory}`' if self.current_subcategory else ''}. "
+                "Intenta con otra selección.", ephemeral=False, view=self
+            )
+
+
+class SubcategorySelectionView(discord.ui.View):
+    """
+    Vista para seleccionar una subcategoría de recursos.
+    """
+    def __init__(self, bot, difficulty: str, category: str):
+        super().__init__(timeout=180)
+        self.bot = bot
+        self.difficulty = difficulty
+        self.category = category
+        self.message = None
+
+        self._add_subcategory_buttons()
+
+    async def on_timeout(self):
+        """
+        Se ejecuta cuando el tiempo de espera de la vista ha expirado.
+        Deshabilita todos los botones y elimina el mensaje.
+        """
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(content="La interacción de selección de subcategoría ha expirado. Este mensaje se eliminará en breve.", view=self)
+                await asyncio.sleep(5)
+                await self.message.delete()
+            except discord.NotFound:
+                print("Mensaje de SubcategorySelectionView no encontrado al intentar editar/eliminar en timeout.")
+            except Exception as e:
+                print(f"Error al editar/eliminar mensaje de SubcategorySelectionView en timeout: {e}")
+
+    def _add_subcategory_buttons(self):
+        """Añade botones para cada subcategoría disponible."""
+        if not db_manager.connect():
+            print("Error: No se pudo conectar a la base de datos para obtener subcategorías.")
+            self.add_item(discord.ui.Button(label="Error de DB", style=discord.ButtonStyle.red, disabled=True))
+            return
+
+        subcategories = db_manager.get_distinct_subcategories(difficulty=self.difficulty, category=self.category)
+        if not subcategories:
+            self.add_item(discord.ui.Button(label="No hay subcategorías disponibles", style=discord.ButtonStyle.grey, disabled=True))
+            return
+
+        for subcategory in subcategories:
+            # Discord tiene un límite de 25 botones por vista
+            if len(self.children) < 25:
+                self.add_item(discord.ui.Button(label=subcategory.title(), style=discord.ButtonStyle.secondary, custom_id=f"subcat_{subcategory}"))
+            else:
+                break # Evitar añadir más de 25 botones
+
+    @discord.ui.button(label="Ver todos los recursos de esta categoría", style=discord.ButtonStyle.primary, custom_id="view_all_in_category", row=4)
+    async def view_all_in_category_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """
+        Maneja la interacción para ver todos los recursos de la categoría seleccionada
+        sin filtrar por subcategoría.
+        """
+        await interaction.response.defer() # Deferir la respuesta para dar tiempo a la DB
+        
+        resources = db_manager.get_resources(category=self.category, difficulty=self.difficulty)
+        
+        for item in self.children:
+            item.disabled = True
+        await interaction.message.edit(content=f"Mostrando recursos para '{self.category}' (Dificultad: '{self.difficulty}'). Este mensaje se eliminará en breve.", view=self)
+        await asyncio.sleep(5)
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            print(f"Mensaje de categoría {self.category} no encontrado al intentar eliminar.")
+        except Exception as e:
+            print(f"Error al eliminar mensaje de categoría {self.category}: {e}")
+
+        resource_view = ResourceDisplayView(resources, self.difficulty, self.category)
+        await resource_view.send_resources(interaction)
+
+
+    @discord.ui.button(label="Volver a Categorías", style=discord.ButtonStyle.grey, custom_id="back_to_categories", row=4)
+    async def back_to_categories_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """
+        Maneja la interacción para volver a la selección de categorías.
+        """
+        await interaction.response.defer() # Deferir la respuesta
+        for item in self.children:
+            item.disabled = True
+        await interaction.message.edit(content="Volviendo a la selección de categorías. Este mensaje se eliminará en breve.", view=self)
+        await asyncio.sleep(5)
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            print("Mensaje de subcategoría no encontrado al intentar eliminar al volver a categorías.")
+        except Exception as e:
+            print(f"Error al eliminar mensaje de subcategoría al volver a categorías: {e}")
+
+        category_view = CategorySelectionView(self.bot, self.difficulty)
+        await interaction.followup.send("Por favor, selecciona una categoría:", view=category_view)
+        category_view.message = interaction.message # Asignar el mensaje para timeout
+
+
+    @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.red, custom_id="cancel_resource_flow", row=4)
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Cancela el flujo de selección de recursos."""
+        # 1. Deferir la interacción inmediatamente
+        await interaction.response.defer()
+
+        # 2. Deshabilita los botones del mensaje actual
+        for item in self.children:
+            item.disabled = True
+        
+        # 3. Enviar el mensaje de confirmación de cancelación (ephemeral)
+        await interaction.followup.send("Búsqueda de recursos cancelada. Puedes usar `&iniciar` para comenzar de nuevo.", ephemeral=True)
+        
+        # 4. Editar el mensaje original para indicar la cancelación y luego eliminarlo
+        await interaction.message.edit(content="Búsqueda de recursos cancelada. Este mensaje se eliminará en breve.", view=self)
+        await asyncio.sleep(5) # Delay before deleting
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            print("Mensaje de cancelación de subcategoría no encontrado al intentar eliminar.")
+        except Exception as e:
+            print(f"Error al eliminar mensaje de cancelación de subcategoría: {e}")
+
+
+    @discord.ui.button(label="Volver al menú principal", style=discord.ButtonStyle.blurple, custom_id="back_to_main_menu_from_subcategory", row=4)
+    async def back_to_main_menu_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """
+        Maneja la interacción para volver al menú principal.
+        """
+        await interaction.response.defer()
+        for item in self.children:
+            item.disabled = True
+        await interaction.message.edit(content="Volviendo al menú principal. Este mensaje se eliminará en breve.", view=self)
+        await asyncio.sleep(5)
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            print("Mensaje de subcategoría no encontrado al intentar eliminar al volver al menú principal.")
+        except Exception as e:
+            print(f"Error al eliminar mensaje de subcategoría al volver al menú principal: {e}")
+        
+        main_menu_cog = self.bot.get_cog("Commands")
+        if main_menu_cog:
+            # Pasar la interacción para que el comando 'iniciar' la maneje correctamente
+            await main_menu_cog.iniciar(interaction) 
+        else:
+            await interaction.followup.send("No se pudo volver al menú principal. Usa `&iniciar` manualmente.")
+
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """
+        Verifica que solo el usuario que inició la interacción pueda usar los botones.
+        La lógica para los botones de subcategoría se maneja aquí dinámicamente.
+        """
+        if interaction.data and interaction.data.get("custom_id", "").startswith("subcat_"):
+            selected_subcategory = interaction.data["custom_id"].replace("subcat_", "")
+            await interaction.response.defer() # Deferir la respuesta para dar tiempo a la DB
+            
+            resources = db_manager.get_resources(
+                category=self.category,
+                subcategory=selected_subcategory,
+                difficulty=self.difficulty
+            )
+            
+            for item in self.children:
+                item.disabled = True
+            await interaction.message.edit(content=f"Mostrando recursos para '{selected_subcategory}' (Dificultad: '{self.difficulty}'). Este mensaje se eliminará en breve.", view=self)
+            await asyncio.sleep(5)
+            try:
+                await interaction.message.delete()
+            except discord.NotFound:
+                print(f"Mensaje de subcategoría {selected_subcategory} no encontrado al intentar eliminar.")
+            except Exception as e:
+                print(f"Error al eliminar mensaje de subcategoría {selected_subcategory}: {e}")
+
+            resource_view = ResourceDisplayView(resources, self.difficulty, self.category, selected_subcategory)
+            await resource_view.send_resources(interaction)
+            return False # No continuar con otros botones en esta interacción
+
+        return True # Permitir que otros botones se procesen
+
+
+class CategorySelectionView(discord.ui.View):
+    """
+    Vista para seleccionar una categoría de recursos.
+    """
+    def __init__(self, bot, difficulty: str):
+        super().__init__(timeout=180)
+        self.bot = bot
+        self.difficulty = difficulty
+        self.message = None
+
+        self._add_category_buttons()
+
+    async def on_timeout(self):
+        """
+        Se ejecuta cuando el tiempo de espera de la vista ha expirado.
+        Deshabilita todos los botones y elimina el mensaje.
+        """
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(content="La interacción de selección de categoría ha expirado. Este mensaje se eliminará en breve.", view=self)
+                await asyncio.sleep(5)
+                await self.message.delete()
+            except discord.NotFound:
+                print("Mensaje de CategorySelectionView no encontrado al intentar editar/eliminar en timeout.")
+            except Exception as e:
+                print(f"Error al editar/eliminar mensaje de CategorySelectionView en timeout: {e}")
+
+    def _add_category_buttons(self):
+        """Añade botones para cada categoría disponible."""
+        if not db_manager.connect():
+            print("Error: No se pudo conectar a la base de datos para obtener categorías.")
+            self.add_item(discord.ui.Button(label="Error de DB", style=discord.ButtonStyle.red, disabled=True))
+            return
+
+        categories = db_manager.get_distinct_categories(difficulty=self.difficulty)
+        if not categories:
+            self.add_item(discord.ui.Button(label="No hay categorías disponibles", style=discord.ButtonStyle.grey, disabled=True))
+            return
+
+        for category in categories:
+            if len(self.children) < 25: # Discord tiene un límite de 25 botones por vista
+                self.add_item(discord.ui.Button(label=category.title(), style=discord.ButtonStyle.primary, custom_id=f"cat_{category}"))
+            else:
+                break
+
+    @discord.ui.button(label="Volver a Dificultades", style=discord.ButtonStyle.grey, custom_id="back_to_difficulties", row=4)
+    async def back_to_difficulties_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """
+        Maneja la interacción para volver a la selección de dificultades.
+        """
+        await interaction.response.defer()
+        for item in self.children:
+            item.disabled = True
+        await interaction.message.edit(content="Volviendo a la selección de dificultades. Este mensaje se eliminará en breve.", view=self)
+        await asyncio.sleep(5)
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            print("Mensaje de categoría no encontrado al intentar eliminar al volver a dificultades.")
+        except Exception as e:
+            print(f"Error al eliminar mensaje de categoría al volver a dificultades: {e}")
+
+        difficulty_view = DifficultySelectionView(self.bot)
+        await interaction.followup.send("Por favor, selecciona una dificultad:", view=difficulty_view)
+        difficulty_view.message = interaction.message # Asignar el mensaje para timeout
+
+    @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.red, custom_id="cancel_resource_flow", row=4)
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Cancela el flujo de selección de recursos."""
+        # 1. Deferir la interacción inmediatamente
+        await interaction.response.defer()
+
+        # 2. Deshabilita los botones del mensaje actual
+        for item in self.children:
+            item.disabled = True
+        
+        # 3. Enviar el mensaje de confirmación de cancelación (ephemeral)
+        await interaction.followup.send("Búsqueda de recursos cancelada. Puedes usar `&iniciar` para comenzar de nuevo.", ephemeral=True)
+        
+        # 4. Editar el mensaje original para indicar la cancelación y luego eliminarlo
+        await interaction.message.edit(content="Búsqueda de recursos cancelada. Este mensaje se eliminará en breve.", view=self)
+        await asyncio.sleep(5) # Delay before deleting
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            print("Mensaje de cancelación de categoría no encontrado al intentar eliminar.")
+        except Exception as e:
+            print(f"Error al eliminar mensaje de cancelación de categoría: {e}")
+
+    @discord.ui.button(label="Volver al menú principal", style=discord.ButtonStyle.blurple, custom_id="back_to_main_menu_from_category", row=4)
+    async def back_to_main_menu_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """
+        Maneja la interacción para volver al menú principal.
+        """
+        await interaction.response.defer()
+        for item in self.children:
+            item.disabled = True
+        await interaction.message.edit(content="Volviendo al menú principal. Este mensaje se eliminará en breve.", view=self)
+        await asyncio.sleep(5)
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            print("Mensaje de categoría no encontrado al intentar eliminar al volver al menú principal.")
+        except Exception as e:
+            print(f"Error al eliminar mensaje de categoría al volver al menú principal: {e}")
+        
+        main_menu_cog = self.bot.get_cog("Commands")
+        if main_menu_cog:
+            # Pasar la interacción para que el comando 'iniciar' la maneje correctamente
+            await main_menu_cog.iniciar(interaction) 
+        else:
+            await interaction.followup.send("No se pudo volver al menú principal. Usa `&iniciar` manualmente.")
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """
+        Verifica que solo el usuario que inició la interacción pueda usar los botones.
+        La lógica para los botones de categoría se maneja aquí dinámicamente.
+        """
+        if interaction.data and interaction.data.get("custom_id", "").startswith("cat_"):
+            selected_category = interaction.data["custom_id"].replace("cat_", "")
+            await interaction.response.defer() # Deferir la respuesta para dar tiempo a la DB
+
+            # Obtener subcategorías para la dificultad y categoría seleccionadas
+            subcategories = db_manager.get_distinct_subcategories(difficulty=self.difficulty, category=selected_category)
+            
+            for item in self.children:
+                item.disabled = True
+            await interaction.message.edit(content=f"Has seleccionado la categoría: **{selected_category.title()}** (Dificultad: {self.difficulty.title()}). Este mensaje se eliminará en breve.", view=self)
+            await asyncio.sleep(5)
+            try:
+                await interaction.message.delete()
+            except discord.NotFound:
+                print(f"Mensaje de categoría {selected_category} no encontrado al intentar eliminar.")
+            except Exception as e:
+                print(f"Error al eliminar mensaje de categoría {selected_category}: {e}")
+
+            if subcategories:
+                subcategory_view = SubcategorySelectionView(self.bot, self.difficulty, selected_category)
+                await interaction.followup.send("Por favor, selecciona una subcategoría o ver todos los recursos de esta categoría:", view=subcategory_view)
+                subcategory_view.message = interaction.message # Asignar el mensaje para timeout
+            else:
+                # Si no hay subcategorías, mostrar directamente los recursos de la categoría
+                resources = db_manager.get_resources(category=selected_category, difficulty=self.difficulty)
+                resource_view = ResourceDisplayView(resources, self.difficulty, selected_category)
+                await interaction.followup.send(f"No hay subcategorías para '{selected_category.title()}' (Dificultad: {self.difficulty.title()}). Mostrando todos los recursos de esta categoría:", view=resource_view)
+                resource_view.message = interaction.message # Asignar el mensaje para timeout
+            return False # No continuar con otros botones en esta interacción
+
+        return True # Permitir que otros botones se procesen
+
+
+class DifficultySelectionView(discord.ui.View):
+    """
+    Vista para seleccionar la dificultad de los recursos.
+    """
+    def __init__(self, bot):
+        super().__init__(timeout=180)
+        self.bot = bot
+        self.message = None # Para almacenar el mensaje y poder eliminarlo
+
+        self._add_difficulty_buttons()
+
+    async def on_timeout(self):
+        """
+        Se ejecuta cuando el tiempo de espera de la vista ha expirado.
+        Deshabilita todos los botones y elimina el mensaje.
+        """
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(content="La interacción de selección de dificultad ha expirado. Este mensaje se eliminará en breve.", view=self)
+                await asyncio.sleep(5)
+                await self.message.delete()
+            except discord.NotFound:
+                print("Mensaje de DifficultySelectionView no encontrado al intentar editar/eliminar en timeout.")
+            except Exception as e:
+                print(f"Error al editar/eliminar mensaje de DifficultySelectionView en timeout: {e}")
+
+    def _add_difficulty_buttons(self):
+        """Añade botones para cada dificultad disponible."""
+        if not db_manager.connect():
+            print("Error: No se pudo conectar a la base de datos para obtener dificultades. Asegúrate de que la DB esté corriendo y las credenciales sean correctas.")
+            self.add_item(discord.ui.Button(label="Error de DB", style=discord.ButtonStyle.red, disabled=True))
+            return
+
+        difficulties = db_manager.get_distinct_difficulties()
+        print(f"Dificultades obtenidas de la DB: {difficulties}") # DEBUG: Para ver qué devuelve la DB
+        
+        if not difficulties:
+            self.add_item(discord.ui.Button(label="No hay dificultades disponibles", style=discord.ButtonStyle.grey, disabled=True))
+            return
+
+        for difficulty in difficulties:
+            # Discord tiene un límite de 25 botones por vista
+            if len(self.children) < 25:
+                self.add_item(discord.ui.Button(label=difficulty.title(), style=discord.ButtonStyle.primary, custom_id=f"diff_{difficulty}"))
+            else:
+                break # Evitar añadir más de 25 botones
+
+    @discord.ui.button(label="Cancelar", style=discord.ButtonStyle.red, custom_id="cancel_resource_flow", row=4)
+    async def cancel_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """Cancela el flujo de selección de recursos."""
+        # 1. Deferir la interacción inmediatamente
+        await interaction.response.defer()
+
+        # 2. Deshabilita los botones del mensaje actual
+        for item in self.children:
+            item.disabled = True
+        
+        # 3. Enviar el mensaje de confirmación de cancelación (ephemeral)
+        await interaction.followup.send("Búsqueda de recursos cancelada. Puedes usar `&iniciar` para comenzar de nuevo.", ephemeral=True)
+        
+        # 4. Editar el mensaje original para indicar la cancelación y luego eliminarlo
+        await interaction.message.edit(content="Búsqueda de recursos cancelada. Este mensaje se eliminará en breve.", view=self)
+        await asyncio.sleep(5) # Delay before deleting
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            print("Mensaje de cancelación de dificultad no encontrado al intentar eliminar.")
+        except Exception as e:
+            print(f"Error al eliminar mensaje de cancelación de dificultad: {e}")
+
+    @discord.ui.button(label="Volver al menú principal", style=discord.ButtonStyle.blurple, custom_id="back_to_main_menu_from_difficulty", row=4)
+    async def back_to_main_menu_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """
+        Maneja la interacción para volver al menú principal.
+        """
+        await interaction.response.defer()
+        for item in self.children:
+            item.disabled = True
+        await interaction.message.edit(content="Volviendo al menú principal. Este mensaje se eliminará en breve.", view=self)
+        await asyncio.sleep(5)
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            print("Mensaje de dificultad no encontrado al intentar eliminar al volver al menú principal.")
+        except Exception as e:
+            print(f"Error al eliminar mensaje de dificultad al volver al menú principal: {e}")
+        
+        main_menu_cog = self.bot.get_cog("Commands")
+        if main_menu_cog:
+            # Pasar la interacción para que el comando 'iniciar' la maneje correctamente
+            await main_menu_cog.iniciar(interaction) 
+        else:
+            await interaction.followup.send("No se pudo volver al menú principal. Usa `&iniciar` manualmente.")
+
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        """
+        Verifica que solo el usuario que inició la interacción pueda usar los botones.
+        La lógica para los botones de dificultad se maneja aquí dinámicamente.
+        """
+        if interaction.data and interaction.data.get("custom_id", "").startswith("diff_"):
+            selected_difficulty = interaction.data["custom_id"].replace("diff_", "")
+            await interaction.response.defer() # Deferir la respuesta para dar tiempo a la DB
+            
+            # Deshabilitar los botones de esta vista y eliminar el mensaje
+            for item in self.children:
+                item.disabled = True
+            await interaction.message.edit(content=f"Has seleccionado la dificultad: **{selected_difficulty.title()}**. Este mensaje se eliminará en breve.", view=self)
+            await asyncio.sleep(5) # Dar tiempo al usuario para ver el mensaje
+            try:
+                await interaction.message.delete()
+            except discord.NotFound:
+                print(f"Mensaje de dificultad {selected_difficulty} no encontrado al intentar eliminar.")
+            except Exception as e:
+                print(f"Error al eliminar mensaje de dificultad {selected_difficulty}: {e}")
+
+            # Crear y enviar la siguiente vista de selección de categoría
+            category_view = CategorySelectionView(self.bot, selected_difficulty)
+            await interaction.followup.send("Por favor, selecciona una categoría:", view=category_view)
+            category_view.message = interaction.message # Asignar el mensaje para timeout
+            return False # No continuar con otros botones en esta interacción
+
+        return True # Permitir que otros botones se procesen
+
+
 class MainMenuView(discord.ui.View):
     """
     Vista del menú principal del bot, presentando opciones iniciales con botones.
@@ -44,17 +589,19 @@ class MainMenuView(discord.ui.View):
     async def on_timeout(self):
         """
         Se ejecuta cuando el tiempo de espera de la vista ha expirado.
-        Deshabilita todos los botones y edita el mensaje original.
+        Deshabilita todos los botones y elimina el mensaje.
         """
         for item in self.children:
             item.disabled = True
         if self.message:
             try:
-                await self.message.edit(content="La interacción ha expirado. Si necesitas ayuda, usa `&iniciar` de nuevo.", view=self)
+                await self.message.edit(content="La interacción ha expirado. Si necesitas ayuda, usa `&iniciar` de nuevo. Este mensaje se eliminará en breve.", view=self)
+                await asyncio.sleep(5) # Dar tiempo al usuario para leer
+                await self.message.delete()
             except discord.NotFound:
-                print("Mensaje de MainMenuView no encontrado al intentar editar en timeout.")
+                print("Mensaje de MainMenuView no encontrado al intentar editar/eliminar en timeout.")
             except Exception as e:
-                print(f"Error al editar mensaje de MainMenuView en timeout: {e}")
+                print(f"Error al editar/eliminar mensaje de MainMenuView en timeout: {e}")
 
     @discord.ui.button(label="Ayuda Técnica", style=discord.ButtonStyle.primary, custom_id="technical_help")
     async def technical_help_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -62,37 +609,57 @@ class MainMenuView(discord.ui.View):
         Maneja la interacción cuando se hace clic en el botón 'Ayuda Técnica'.
         Delega la creación del ticket al cog de `TicketManagement`.
         """
-        # Deshabilita los botones del menú principal para esta interacción
+        # 1. Deferir la interacción inmediatamente para evitar el error "Unknown interaction"
+        await interaction.response.defer() 
+
+        # 2. Deshabilita los botones del menú principal para esta interacción
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(view=self)
+        await interaction.message.edit(content="Iniciando flujo de Ayuda Técnica. Este mensaje se eliminará en breve.", view=self) # Actualiza el mensaje original con los botones deshabilitados
 
+        # 3. Llama a la lógica del cog de gestión de tickets
         ticket_cog = self.bot.get_cog("TicketManagement")
         if ticket_cog:
-            # Llama a la función de creación de ticket del cog
             await ticket_cog.create_technical_ticket(interaction)
         else:
-            await interaction.response.send_message("❌ Error interno: El módulo de gestión de tickets no está cargado. Contacta a un administrador.", ephemeral=True)
+            await interaction.followup.send("❌ Error interno: El módulo de gestión de tickets no está cargado. Contacta a un administrador.", ephemeral=True)
+        
+        # 4. Elimina el mensaje original después de un breve retraso
+        await asyncio.sleep(5) # Dar tiempo al usuario para ver el mensaje actualizado
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            print("Mensaje de Ayuda Técnica no encontrado al intentar eliminar.")
+        except Exception as e:
+            print(f"Error al eliminar mensaje de Ayuda Técnica: {e}")
 
     @discord.ui.button(label="Necesito un Recurso", style=discord.ButtonStyle.success, custom_id="request_resource")
     async def request_resource_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """
         Maneja la interacción cuando se hace clic en el botón 'Necesito un Recurso'.
-        Informa al usuario sobre el comando para buscar recursos.
+        Inicia el flujo de selección de recursos con botones.
         """
-        # Deshabilita los botones del menú principal para esta interacción
+        # 1. Deferir la interacción inmediatamente para evitar el error "Unknown interaction"
+        await interaction.response.defer() 
+
+        # 2. Deshabilita los botones del menú principal para esta interacción
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(view=self)
+        await interaction.message.edit(content="Iniciando búsqueda de recursos. Este mensaje se eliminará en breve.", view=self) # Actualiza el mensaje original con los botones deshabilitados
+        
+        # 3. Inicia el flujo de selección de recursos con la vista de dificultad
+        difficulty_view = DifficultySelectionView(self.bot)
+        difficulty_view.message = await interaction.followup.send("Por favor, selecciona la dificultad del recurso:", view=difficulty_view)
+        
+        # 4. Elimina el mensaje original después de un breve retraso
+        await asyncio.sleep(5) # Dar tiempo al usuario para ver el mensaje actualizado
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            print("Mensaje de Recurso no encontrado al intentar eliminar.")
+        except Exception as e:
+            print(f"Error al eliminar mensaje de Recurso: {e}")
 
-        await interaction.response.send_message(
-            "Entendido. Para ayudarte a encontrar el recurso que necesitas, "
-            "por favor, usa el comando `&recurso` seguido de tu problema principal "
-            "(ej. `&recurso aprendizaje` o `&recurso autogestión`). "
-            "También puedes usar `&recurso ayuda` para ver las categorías disponibles.",
-            ephemeral=False
-        )
-        # La lógica detallada de selección de recursos se implementará en cogs/resources.py
 
     @discord.ui.button(label="Hablar con un Humano", style=discord.ButtonStyle.danger, custom_id="human_contact")
     async def human_contact_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -100,24 +667,37 @@ class MainMenuView(discord.ui.View):
         Maneja la interacción cuando se hace clic en el botón 'Hablar con un Humano'.
         Inicia un flujo de preguntas para recopilar información, gestionado por el cog de interacción humana.
         """
-        # Deshabilita los botones del menú principal para esta interacción
+        # 1. Deferir la interacción inmediatamente para evitar el error "Unknown interaction"
+        await interaction.response.defer()
+
+        # 2. Deshabilita los botones del menú principal para esta interacción
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(view=self)
+        await interaction.message.edit(content="Iniciando conversación con un humano. Este mensaje se eliminará en breve.", view=self) # Actualiza el mensaje original con los botones deshabilitados
 
         user_id = interaction.user.id
         if user_id in config.user_conversations and config.user_conversations[user_id]['state'] != 0:
-            await interaction.response.send_message("Ya tienes una conversación en curso para contactar a un humano. Por favor, completa esa conversación o espera.", ephemeral=True)
+            await interaction.followup.send("Ya tienes una conversación en curso para contactar a un humano. Por favor, completa esa conversación o espera.", ephemeral=True)
+            # No eliminamos el mensaje original aquí si el flujo no continúa con un nuevo mensaje
             return
 
-        # Inicializa el estado de la conversación en el diccionario de configuración
+        # 3. Inicializa el estado de la conversación y envía la primera pregunta
         config.user_conversations[user_id] = {'state': 1, 'answers': [], 'channel_id': None}
-        await interaction.response.send_message(
+        await interaction.followup.send(
             "Para poder ayudarte mejor y que un miembro de nuestro equipo te contacte, "
             "por favor, responde a la primera pregunta en este chat:\n\n"
             "**1. ¿Cuál es el problema principal que tienes?**",
             ephemeral=False
         )
+        
+        # 4. Elimina el mensaje original después de un breve retraso
+        await asyncio.sleep(5) # Dar tiempo al usuario para ver el mensaje actualizado
+        try:
+            await interaction.message.delete()
+        except discord.NotFound:
+            print("Mensaje de Hablar con un Humano no encontrado al intentar eliminar.")
+        except Exception as e:
+            print(f"Error al eliminar mensaje de Hablar con un Humano: {e}")
 
 # Este archivo no necesita una función `setup` porque solo contiene clases de vista,
 # que serán instanciadas y utilizadas por los cogs o comandos del bot.

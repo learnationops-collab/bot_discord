@@ -21,6 +21,7 @@ class TicketManagement(commands.Cog):
         Crea un canal privado de ayuda técnica para el usuario que interactúa.
         Esta función está diseñada para ser llamada por un botón de una vista
         (por ejemplo, desde MainMenuView).
+        Se asegura de usar interaction.followup.send si la interacción ya fue respondida.
 
         Args:
             interaction (discord.Interaction): La interacción del botón que activó esta función.
@@ -30,11 +31,18 @@ class TicketManagement(commands.Cog):
 
         # Validar que el ID del rol de soporte técnico esté configurado
         if config.SOPORTE_TECNICO_ROLE_ID is None:
-            await interaction.response.send_message("❌ Error de configuración: El ID del rol de Soporte Técnico no está definido en .env o no es válido. Contacta a un administrador.", ephemeral=True)
+            # Usar followup.send si la interacción ya fue respondida
+            if interaction.response.is_done():
+                await interaction.followup.send("❌ Error de configuración: El ID del rol de Soporte Técnico no está definido en .env o no es válido. Contacta a un administrador.", ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ Error de configuración: El ID del rol de Soporte Técnico no está definido en .env o no es válido. Contacta a un administrador.", ephemeral=True)
             return
         support_role = guild.get_role(config.SOPORTE_TECNICO_ROLE_ID)
         if not support_role:
-            await interaction.response.send_message("❌ Error: No se encontró el rol de Soporte Técnico con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.", ephemeral=True)
+            if interaction.response.is_done():
+                await interaction.followup.send("❌ Error: No se encontró el rol de Soporte Técnico con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.", ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ Error: No se encontró el rol de Soporte Técnico con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.", ephemeral=True)
             return
 
         # Definir permisos para el nuevo canal
@@ -48,19 +56,25 @@ class TicketManagement(commands.Cog):
         try:
             # Validar que el ID de la categoría de ayuda técnica esté configurado
             if config.AYUDA_TECNICA_CATEGORY_ID is None:
-                await interaction.response.send_message("❌ Error de configuración: El ID de la categoría de Ayuda Técnica no está definido en .env o no es válido. Contacta a un administrador.", ephemeral=True)
+                if interaction.response.is_done():
+                    await interaction.followup.send("❌ Error de configuración: El ID de la categoría de Ayuda Técnica no está definido en .env o no es válido. Contacta a un administrador.", ephemeral=True)
+                else:
+                    await interaction.response.send_message("❌ Error de configuración: El ID de la categoría de Ayuda Técnica no está definido en .env o no es válido. Contacta a un administrador.", ephemeral=True)
                 return
             category = guild.get_channel(config.AYUDA_TECNICA_CATEGORY_ID)
             if not category:
-                await interaction.response.send_message("❌ Error: No se encontró la categoría de Ayuda Técnica con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.", ephemeral=True)
+                if interaction.response.is_done():
+                    await interaction.followup.send("❌ Error: No se encontró la categoría de Ayuda Técnica con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.", ephemeral=True)
+                else:
+                    await interaction.response.send_message("❌ Error: No se encontró la categoría de Ayuda Técnica con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.", ephemeral=True)
                 return
 
             # Crear el nombre del canal de forma única
             channel_name = f"ayuda-tecnica-{user.name.lower().replace(' ', '-')}-{user.discriminator}"
             new_channel = await category.create_text_channel(channel_name, overwrites=overwrites)
 
-            # Responder a la interacción original (visible para todos en el canal donde se hizo clic)
-            await interaction.response.send_message(
+            # CORRECCIÓN: Usar followup.send ya que la interacción ya fue respondida por MainMenuView
+            await interaction.followup.send(
                 f"¡Hola {user.mention}! He creado un canal privado para tu soporte técnico: {new_channel.mention}\n"
                 "Por favor, dirígete a ese canal para describir tu problema. "
                 "Un miembro de nuestro equipo de soporte técnico te ayudará pronto.\n\n"
@@ -84,10 +98,16 @@ class TicketManagement(commands.Cog):
 
         except discord.Forbidden:
             # Si el bot no tiene permisos para crear canales en la categoría especificada
-            await interaction.followup.send("❌ No tengo los permisos necesarios para crear canales. Por favor, asegúrate de que el bot tenga el permiso 'Gestionar Canales' en la categoría de ayuda técnica.", ephemeral=True)
+            if interaction.response.is_done():
+                await interaction.followup.send("❌ No tengo los permisos necesarios para crear canales. Por favor, asegúrate de que el bot tenga el permiso 'Gestionar Canales' en la categoría de ayuda técnica.", ephemeral=True)
+            else:
+                await interaction.response.send_message("❌ No tengo los permisos necesarios para crear canales. Por favor, asegúrate de que el bot tenga el permiso 'Gestionar Canales' en la categoría de ayuda técnica.", ephemeral=True)
         except Exception as e:
             # Captura cualquier otro error inesperado durante la creación del canal
-            await interaction.followup.send(f"❌ Ocurrió un error al crear el canal de ayuda técnica: `{e}`", ephemeral=True)
+            if interaction.response.is_done():
+                await interaction.followup.send(f"❌ Ocurrió un error al crear el canal de ayuda técnica: `{e}`", ephemeral=True)
+            else:
+                await interaction.response.send_message(f"❌ Ocurrió un error al crear el canal de ayuda técnica: `{e}`", ephemeral=True)
             print(f"Error al crear canal de ayuda técnica: {e}")
 
     @commands.command(name='cerrar_ticket', help='Cierra el canal de soporte actual (solo en canales de ticket).')

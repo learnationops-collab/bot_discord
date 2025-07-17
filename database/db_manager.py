@@ -169,6 +169,81 @@ class DBManager:
                 pass
         return resources
 
+    def get_distinct_difficulties(self):
+        """
+        Obtiene una lista de todas las dificultades distintas disponibles en la tabla de recursos.
+        """
+        sql = "SELECT DISTINCT difficulty FROM resources ORDER BY difficulty ASC;"
+        difficulties = []
+        conn = self.connect()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(sql)
+                    rows = cur.fetchall()
+                    difficulties = [row[0] for row in rows if row[0] is not None]
+            except psycopg2.Error as e:
+                print(f"Error al obtener dificultades distintas: {e}")
+            finally:
+                pass
+        return difficulties
+
+    def get_distinct_categories(self, difficulty: str = None):
+        """
+        Obtiene una lista de todas las categorías distintas disponibles,
+        opcionalmente filtradas por dificultad.
+        """
+        sql = "SELECT DISTINCT category FROM resources WHERE 1=1"
+        params = []
+        if difficulty:
+            sql += " AND difficulty ILIKE %s"
+            params.append(f"%{self._normalize_string(difficulty)}%")
+        sql += " ORDER BY category ASC;"
+
+        categories = []
+        conn = self.connect()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(sql, params)
+                    rows = cur.fetchall()
+                    categories = [row[0] for row in rows if row[0] is not None]
+            except psycopg2.Error as e:
+                print(f"Error al obtener categorías distintas: {e}")
+            finally:
+                pass
+        return categories
+
+    def get_distinct_subcategories(self, difficulty: str = None, category: str = None):
+        """
+        Obtiene una lista de todas las subcategorías distintas disponibles,
+        opcionalmente filtradas por dificultad y/o categoría.
+        """
+        sql = "SELECT DISTINCT subcategory FROM resources WHERE subcategory IS NOT NULL"
+        params = []
+        if difficulty:
+            sql += " AND difficulty ILIKE %s"
+            params.append(f"%{self._normalize_string(difficulty)}%")
+        if category:
+            sql += " AND category ILIKE %s"
+            params.append(f"%{self._normalize_string(category)}%")
+        sql += " ORDER BY subcategory ASC;"
+
+        subcategories = []
+        conn = self.connect()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(sql, params)
+                    rows = cur.fetchall()
+                    subcategories = [row[0] for row in rows if row[0] is not None]
+            except psycopg2.Error as e:
+                print(f"Error al obtener subcategorías distintas: {e}")
+            finally:
+                pass
+        return subcategories
+
+
 # Ejemplo de uso (solo para pruebas, no se ejecutará directamente en el bot)
 if __name__ == "__main__":
     # Asegúrate de tener estas variables en tu .env para que el ejemplo funcione
@@ -217,6 +292,19 @@ if __name__ == "__main__":
         time_management_resources = db_manager.get_resources(category="autogestion", subcategory="gestion del tiempo")
         for res in time_management_resources:
             print(res)
+        
+        print("\n--- Probando obtención de dificultades distintas ---")
+        difficulties = db_manager.get_distinct_difficulties()
+        print(f"Dificultades distintas: {difficulties}")
+
+        print("\n--- Probando obtención de categorías distintas (filtrado por 'avanzado') ---")
+        categories_advanced = db_manager.get_distinct_categories(difficulty="avanzado")
+        print(f"Categorías avanzadas: {categories_advanced}")
+
+        print("\n--- Probando obtención de subcategorías distintas (filtrado por 'autogestion' y 'basico') ---")
+        subcategories_autogestion_basico = db_manager.get_distinct_subcategories(difficulty="basico", category="autogestion")
+        print(f"Subcategorías de autogestión (básico): {subcategories_autogestion_basico}")
+
 
     else:
         print("No se pudo conectar a la base de datos para las pruebas.")
