@@ -45,6 +45,6 @@ INSERT INTO resources (resource_name, link, category, subcategory, difficulty) V
 ('Guia de Neurociencia Cognitiva', 'https://ejemplo.com/guia_neurociencia', 'aprendizaje', 'olvido de estudio', 'avanzado'),
 ('Tecnicas de Autogestion del Tiempo', 'https://ejemplo.com/tecnicas_tiempo', 'autogestion', 'falta de tiempo', 'basico'),
 ('Manejo de la Ansiedad para Estudiantes', 'https://ejemplo.com/ansiedad_estudio', 'autorregulacion', 'ansiedad', 'avanzado'),
-('Estrategias para Superar la Desmotivacion', 'https://ejemplo.com/desmotivacion_estudio', 'autorregulación', 'desmotivación', 'basico'),
+('Estrategias para Superar la Desmotivacion', 'https://ejemplo.com/desmotivacion_estudio', 'autorregulacion', 'desmotivacion', 'basico'),
 ('Como Crear Esquemas Efectivos', 'https://ejemplo.com/esquemas_efectivos', 'aprendizaje', 'esquemas no adaptados', 'basico');
 

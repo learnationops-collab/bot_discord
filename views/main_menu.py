@@ -637,7 +637,7 @@ class MainMenuView(discord.ui.View):
     async def request_resource_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """
         Maneja la interacción cuando se hace clic en el botón 'Necesito un Recurso'.
-        Inicia el flujo de selección de recursos con botones.
+        Inicia el flujo de selección de recursos creando un canal privado.
         """
         # 1. Deferir la interacción inmediatamente para evitar el error "Unknown interaction"
         await interaction.response.defer() 
@@ -645,11 +645,14 @@ class MainMenuView(discord.ui.View):
         # 2. Deshabilita los botones del menú principal para esta interacción
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(content="Iniciando búsqueda de recursos. Este mensaje se eliminará en breve.", view=self) # Actualiza el mensaje original con los botones deshabilitados
+        await interaction.message.edit(content="Iniciando búsqueda de recursos en un canal privado. Este mensaje se eliminará en breve.", view=self) # Actualiza el mensaje original con los botones deshabilitados
         
-        # 3. Inicia el flujo de selección de recursos con la vista de dificultad
-        difficulty_view = DifficultySelectionView(self.bot)
-        difficulty_view.message = await interaction.followup.send("Por favor, selecciona la dificultad del recurso:", view=difficulty_view)
+        # 3. Llama a la lógica del cog de gestión de tickets para crear el canal de recursos
+        ticket_cog = self.bot.get_cog("TicketManagement")
+        if ticket_cog:
+            await ticket_cog.create_resource_search_channel(interaction)
+        else:
+            await interaction.followup.send("❌ Error interno: El módulo de gestión de tickets no está cargado. Contacta a un administrador.", ephemeral=True)
         
         # 4. Elimina el mensaje original después de un breve retraso
         await asyncio.sleep(5) # Dar tiempo al usuario para ver el mensaje actualizado
