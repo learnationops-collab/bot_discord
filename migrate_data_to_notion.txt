@@ -1,0 +1,133 @@
+import os
+import psycopg2
+from dotenv import load_dotenv
+from database.db_manager import DBManager # Asegúrate de que la ruta sea correcta
+
+# Carga las variables de entorno desde el archivo .env
+load_dotenv()
+
+class PostgreSQLManager:
+    """
+    Clase temporal para leer datos de la base de datos PostgreSQL existente.
+    """
+    def __init__(self):
+        self.db_name = os.getenv('DB_NAME')
+        self.db_user = os.getenv('DB_USER')
+        self.db_password = os.getenv('DB_PASSWORD')
+        self.db_host = os.getenv('DB_HOST', 'localhost')
+        self.db_port = os.getenv('DB_PORT', '5432')
+        self.conn = None
+
+        if not all([self.db_name, self.db_user, self.db_password]):
+            print("¡ADVERTENCIA! Las variables de entorno de PostgreSQL (DB_NAME, DB_USER, DB_PASSWORD) no están configuradas.")
+
+    def connect(self):
+        """Establece una conexión con la base de datos PostgreSQL."""
+        if self.conn is not None and not self.conn.closed:
+            return self.conn
+        try:
+            self.conn = psycopg2.connect(
+                dbname=self.db_name,
+                user=self.db_user,
+                password=self.db_password,
+                host=self.db_host,
+                port=self.db_port
+            )
+            print("Conexión a PostgreSQL establecida exitosamente.")
+            return self.conn
+        except psycopg2.Error as e:
+            print(f"Error al conectar con PostgreSQL: {e}")
+            self.conn = None
+            return None
+
+    def close(self):
+        """Cierra la conexión activa con la base de datos PostgreSQL."""
+        if self.conn:
+            try:
+                self.conn.close()
+                self.conn = None
+                print("Conexión a PostgreSQL cerrada.")
+            except psycopg2.Error as e:
+                print(f"Error al cerrar la conexión de PostgreSQL: {e}")
+
+    def get_all_resources(self):
+        """
+        Recupera todos los recursos de la tabla 'resources' de PostgreSQL.
+        """
+        sql = "SELECT resource_name, link, category, subcategory, difficulty FROM resources;"
+        resources = []
+        conn = self.connect()
+        if conn:
+            try:
+                with conn.cursor() as cur:
+                    cur.execute(sql)
+                    rows = cur.fetchall()
+                    columns = [desc[0] for desc in cur.description]
+                    for row in rows:
+                        resources.append(dict(zip(columns, row)))
+                print(f"Recursos encontrados en PostgreSQL: {len(resources)}")
+            except psycopg2.Error as e:
+                print(f"Error al obtener recursos de PostgreSQL: {e}")
+            finally:
+                pass
+        return resources
+
+def migrate_data():
+    """
+    Función principal para migrar datos de PostgreSQL a Notion.
+    """
+    pg_manager = PostgreSQLManager()
+    notion_manager = DBManager() # Instancia del DBManager para Notion
+
+    # 1. Conectar a PostgreSQL
+    if not pg_manager.connect():
+        print("No se pudo conectar a PostgreSQL. Abortando migración.")
+        return
+
+    # 2. Conectar a Notion
+    if not notion_manager.connect():
+        print("No se pudo conectar a Notion. Abortando migración.")
+        pg_manager.close() # Asegurarse de cerrar la conexión de PG
+        return
+
+    # 3. Obtener todos los recursos de PostgreSQL
+    pg_resources = pg_manager.get_all_resources()
+
+    if not pg_resources:
+        print("No se encontraron recursos en la base de datos PostgreSQL para migrar.")
+        pg_manager.close()
+        notion_manager.close()
+        return
+
+    print(f"\nIniciando migración de {len(pg_resources)} recursos de PostgreSQL a Notion...")
+
+    # 4. Insertar cada recurso en Notion
+    migrated_count = 0
+    for resource in pg_resources:
+        resource_name = resource.get('resource_name')
+        link = resource.get('link')
+        category = resource.get('category')
+        subcategory = resource.get('subcategory')
+        difficulty = resource.get('difficulty')
+
+        print(f"Migrando: '{resource_name}'...")
+        success = notion_manager.insert_resource(
+            resource_name=resource_name,
+            link=link,
+            category=category,
+            subcategory=subcategory,
+            difficulty=difficulty
+        )
+        if success:
+            migrated_count += 1
+        else:
+            print(f"¡ADVERTENCIA! Fallo al migrar '{resource_name}'. Revisa los logs de error.")
+
+    print(f"\nMigración completada. {migrated_count} de {len(pg_resources)} recursos migrados exitosamente a Notion.")
+
+    # 5. Cerrar conexiones
+    pg_manager.close()
+    notion_manager.close()
+
+if __name__ == "__main__":
+    migrate_data()

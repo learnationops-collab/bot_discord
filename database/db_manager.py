@@ -1,37 +1,35 @@
 import os
-import psycopg2
 from dotenv import load_dotenv
-import unicodedata # Necesario para la normalización de cadenas
+from notion_client import Client
+from notion_client.helpers import collect_paginated_api # Útil para obtener todos los resultados de una consulta paginada
+import unicodedata
 
 # Carga las variables de entorno desde el archivo .env
 load_dotenv()
 
 class DBManager:
     """
-    Clase para gestionar la conexión y las operaciones con la base de datos PostgreSQL.
+    Clase para gestionar la conexión y las operaciones con la base de datos de Notion.
     Permite insertar y recuperar recursos para el bot.
     """
     def __init__(self):
         """
-        Inicializa el DBManager cargando las credenciales de la base de datos
+        Inicializa el DBManager cargando el token de Notion y el ID de la base de datos
         desde las variables de entorno.
         """
-        self.db_name = os.getenv('DB_NAME')
-        self.db_user = os.getenv('DB_USER')
-        self.db_password = os.getenv('DB_PASSWORD')
-        self.db_host = os.getenv('DB_HOST', 'localhost') # Por defecto 'localhost'
-        self.db_port = os.getenv('DB_PORT', '5432')     # Por defecto '5432'
-        self.conn = None # La conexión se establecerá cuando sea necesario
+        self.notion_token = os.getenv('NOTION_TOKEN')
+        self.notion_database_id = os.getenv('NOTION_DATABASE_ID')
+        self.notion = None # El cliente de Notion se inicializará en connect
 
-        # Validación básica de las variables de entorno de la base de datos
-        if not all([self.db_name, self.db_user, self.db_password]):
-            print("¡ADVERTENCIA! Las variables de entorno de la base de datos (DB_NAME, DB_USER, DB_PASSWORD) no están completamente configuradas.")
-            print("Asegúrate de que DB_NAME, DB_USER y DB_PASSWORD estén definidos en tu archivo .env.")
+        # Validación básica de las variables de entorno de Notion
+        if not self.notion_token or not self.notion_database_id:
+            print("¡ADVERTENCIA! Las variables de entorno de Notion (NOTION_TOKEN, NOTION_DATABASE_ID) no están completamente configuradas.")
+            print("Asegúrate de que NOTION_TOKEN y NOTION_DATABASE_ID estén definidos en tu archivo .env.")
 
     def _normalize_string(self, text: str) -> str:
         """
         Normaliza una cadena de texto: la convierte a minúsculas y elimina acentos.
-        Esto es útil para búsquedas insensibles a mayúsculas/minúsculas y acentos.
+        Esto es útil para búsquedas consistentes.
         """
         if text is None:
             return None
@@ -41,43 +39,29 @@ class DBManager:
 
     def connect(self):
         """
-        Establece una conexión con la base de datos PostgreSQL.
-        Retorna el objeto de conexión si es exitosa, None en caso de error.
+        Inicializa el cliente de Notion utilizando el token de integración.
+        Retorna el objeto de cliente de Notion si es exitoso, None en caso de error.
         """
-        if self.conn is not None and not self.conn.closed:
-            # Si ya hay una conexión abierta y no está cerrada, la reutilizamos
-            return self.conn
-
-        try:
-            self.conn = psycopg2.connect(
-                dbname=self.db_name,
-                user=self.db_user,
-                password=self.db_password,
-                host=self.db_host,
-                port=self.db_port
-            )
-            print("Conexión a la base de datos establecida exitosamente.")
-            return self.conn
-        except psycopg2.Error as e:
-            print(f"Error al conectar con la base de datos: {e}")
-            self.conn = None # Asegurarse de que la conexión sea None si falla
-            return None
+        if self.notion is None:
+            try:
+                self.notion = Client(auth=self.notion_token)
+                print("Cliente de Notion inicializado exitosamente.")
+            except Exception as e:
+                print(f"Error al inicializar el cliente de Notion: {e}")
+                self.notion = None # Asegurarse de que el cliente sea None si falla
+        return self.notion
 
     def close(self):
         """
-        Cierra la conexión activa con la base de datos.
+        No se necesita una acción explícita de cierre para el cliente de Notion,
+        ya que gestiona las conexiones internamente.
         """
-        if self.conn:
-            try:
-                self.conn.close()
-                self.conn = None
-                print("Conexión a la base de datos cerrada.")
-            except psycopg2.Error as e:
-                print(f"Error al cerrar la conexión de la base de datos: {e}")
+        self.notion = None
+        print("Cliente de Notion 'cerrado' (desreferenciado).")
 
     def insert_resource(self, resource_name: str, link: str, category: str, difficulty: str, subcategory: str = None):
         """
-        Inserta un nuevo recurso en la tabla 'resources'.
+        Inserta un nuevo recurso en la base de datos de Notion.
         Los campos de texto se normalizan antes de la inserción para asegurar
         que estén en minúsculas y sin acentos, facilitando búsquedas consistentes.
 
@@ -91,37 +75,42 @@ class DBManager:
         Returns:
             bool: True si la inserción fue exitosa, False en caso contrario.
         """
-        # Normalizar los datos antes de la inserción
-        normalized_resource_name = self._normalize_string(resource_name)
-        normalized_category = self._normalize_string(category)
-        normalized_subcategory = self._normalize_string(subcategory)
-        normalized_difficulty = self._normalize_string(difficulty)
+        if not self.notion:
+            self.connect()
+        if not self.notion:
+            return False
 
-        sql = """
-        INSERT INTO resources (resource_name, link, category, subcategory, difficulty)
-        VALUES (%s, %s, %s, %s, %s)
-        RETURNING resource_id;
-        """
-        conn = self.connect()
-        if conn:
-            try:
-                with conn.cursor() as cur:
-                    cur.execute(sql, (normalized_resource_name, link, normalized_category, normalized_subcategory, normalized_difficulty))
-                    resource_id = cur.fetchone()[0]
-                    conn.commit()
-                    print(f"Recurso '{resource_name}' insertado con ID: {resource_id}")
-                    return True
-            except psycopg2.Error as e:
-                print(f"Error al insertar el recurso '{resource_name}': {e}")
-                conn.rollback() # Revertir la transacción en caso de error
-                return False
-            finally:
-                pass
-        return False
+        try:
+            # Normalizar los datos antes de la inserción
+            normalized_resource_name = self._normalize_string(resource_name)
+            normalized_category = self._normalize_string(category)
+            normalized_subcategory = self._normalize_string(subcategory)
+            normalized_difficulty = self._normalize_string(difficulty)
+
+            # Construir el diccionario de propiedades para la página de Notion
+            properties = {
+                "resource_name": {"title": [{"text": {"content": normalized_resource_name}}]},
+                "link": {"url": link},
+                "category": {"select": {"name": normalized_category}},
+                "difficulty": {"select": {"name": normalized_difficulty}}
+            }
+            if normalized_subcategory:
+                # Asumimos que 'Subcategory' es una propiedad de tipo 'Select'
+                properties["subcategory"] = {"select": {"name": normalized_subcategory}}
+
+            self.notion.pages.create(
+                parent={"database_id": self.notion_database_id},
+                properties=properties
+            )
+            print(f"Recurso '{resource_name}' insertado en Notion.")
+            return True
+        except Exception as e:
+            print(f"Error al insertar el recurso '{resource_name}' en Notion: {e}")
+            return False
 
     def get_resources(self, category: str = None, subcategory: str = None, difficulty: str = None):
         """
-        Recupera recursos de la tabla 'resources' basándose en filtros opcionales.
+        Recupera recursos de la base de datos de Notion basándose en filtros opcionales.
         Los parámetros de búsqueda se normalizan (minúsculas y sin acentos)
         para coincidir con el formato de los datos almacenados en la base de datos.
 
@@ -134,8 +123,12 @@ class DBManager:
             list: Una lista de diccionarios, donde cada diccionario representa un recurso.
                   Retorna una lista vacía si no se encuentran recursos o si hay un error.
         """
-        sql = "SELECT resource_name, link, category, subcategory, difficulty FROM resources WHERE 1=1"
-        params = []
+        if not self.notion:
+            self.connect()
+        if not self.notion:
+            return []
+
+        filter_conditions = []
 
         # Normalizar los parámetros de búsqueda antes de usarlos en la consulta
         normalized_category = self._normalize_string(category)
@@ -143,126 +136,170 @@ class DBManager:
         normalized_difficulty = self._normalize_string(difficulty)
 
         if normalized_category:
-            sql += " AND category ILIKE %s" # ILIKE para búsqueda insensible a mayúsculas/minúsculas
-            params.append(f"%{normalized_category}%")
+            filter_conditions.append({
+                "property": "category",
+                "select": {"equals": normalized_category}
+            })
         if normalized_subcategory:
-            sql += " AND subcategory ILIKE %s"
-            params.append(f"%{normalized_subcategory}%")
+            filter_conditions.append({
+                "property": "subcategory",
+                "select": {"equals": normalized_subcategory}
+            })
         if normalized_difficulty:
-            sql += " AND difficulty ILIKE %s"
-            params.append(f"%{normalized_difficulty}%")
+            filter_conditions.append({
+                "property": "difficulty",
+                "select": {"equals": normalized_difficulty}
+            })
+
+        query_filter = {}
+        if filter_conditions:
+            if len(filter_conditions) == 1:
+                query_filter = filter_conditions[0]
+            else:
+                query_filter["and"] = filter_conditions
 
         resources = []
-        conn = self.connect()
-        if conn:
-            try:
-                with conn.cursor() as cur:
-                    cur.execute(sql, params)
-                    rows = cur.fetchall()
-                    columns = [desc[0] for desc in cur.description] # Obtener nombres de columnas
-                    for row in rows:
-                        resources.append(dict(zip(columns, row)))
-                print(f"Recursos encontrados: {len(resources)}")
-            except psycopg2.Error as e:
-                print(f"Error al obtener recursos: {e}")
-            finally:
-                pass
+        try:
+            # Usar collect_paginated_api para obtener todos los resultados si hay muchos
+            pages = collect_paginated_api(
+                self.notion.databases.query,
+                database_id=self.notion_database_id,
+                filter=query_filter
+            )
+
+            for page in pages:
+                props = page["properties"]
+                resource = {
+                    "resource_name": props.get("resource_name", {}).get("title", [{}])[0].get("plain_text") if props.get("resource_name") else None,
+                    "link": props.get("link", {}).get("url"),
+                    "category": props.get("category", {}).get("select", {}).get("name"),
+                    "subcategory": props.get("subcategory", {}).get("select", {}).get("name"),
+                    "difficulty": props.get("difficulty", {}).get("select", {}).get("name"),
+                }
+                resources.append(resource)
+            print(f"Recursos encontrados en Notion: {len(resources)}")
+        except Exception as e:
+            print(f"Error al obtener recursos de Notion: {e}")
         return resources
 
     def get_distinct_difficulties(self):
         """
-        Obtiene una lista de todas las dificultades distintas disponibles en la tabla de recursos.
+        Obtiene una lista de todas las dificultades distintas disponibles en la base de datos de Notion.
         """
-        sql = "SELECT DISTINCT difficulty FROM resources ORDER BY difficulty ASC;"
-        difficulties = []
-        conn = self.connect()
-        if conn:
-            try:
-                with conn.cursor() as cur:
-                    cur.execute(sql)
-                    rows = cur.fetchall()
-                    difficulties = [row[0] for row in rows if row[0] is not None]
-            except psycopg2.Error as e:
-                print(f"Error al obtener dificultades distintas: {e}")
-            finally:
-                pass
-        return difficulties
+        if not self.notion:
+            self.connect()
+        if not self.notion:
+            return []
+
+        difficulties = set()
+        try:
+            pages = collect_paginated_api(
+                self.notion.databases.query,
+                database_id=self.notion_database_id
+            )
+            for page in pages:
+                difficulty = page["properties"].get("difficulty", {}).get("select", {}).get("name")
+                if difficulty:
+                    difficulties.add(difficulty)
+        except Exception as e:
+            print(f"Error al obtener dificultades distintas de Notion: {e}")
+        return sorted(list(difficulties))
 
     def get_distinct_categories(self, difficulty: str = None):
         """
         Obtiene una lista de todas las categorías distintas disponibles,
         opcionalmente filtradas por dificultad.
         """
-        sql = "SELECT DISTINCT category FROM resources WHERE 1=1"
-        params = []
-        if difficulty:
-            sql += " AND difficulty ILIKE %s"
-            params.append(f"%{self._normalize_string(difficulty)}%")
-        sql += " ORDER BY category ASC;"
+        if not self.notion:
+            self.connect()
+        if not self.notion:
+            return []
 
-        categories = []
-        conn = self.connect()
-        if conn:
-            try:
-                with conn.cursor() as cur:
-                    cur.execute(sql, params)
-                    rows = cur.fetchall()
-                    categories = [row[0] for row in rows if row[0] is not None]
-            except psycopg2.Error as e:
-                print(f"Error al obtener categorías distintas: {e}")
-            finally:
-                pass
-        return categories
+        categories = set()
+        filter_conditions = []
+        if difficulty:
+            filter_conditions.append({
+                "property": "difficulty",
+                "select": {"equals": self._normalize_string(difficulty)}
+            })
+
+        query_filter = {}
+        if filter_conditions:
+            query_filter["and"] = filter_conditions
+
+        try:
+            pages = collect_paginated_api(
+                self.notion.databases.query,
+                database_id=self.notion_database_id,
+                filter=query_filter
+            )
+            for page in pages:
+                category = page["properties"].get("category", {}).get("select", {}).get("name")
+                if category:
+                    categories.add(category)
+        except Exception as e:
+            print(f"Error al obtener categorías distintas de Notion: {e}")
+        return sorted(list(categories))
 
     def get_distinct_subcategories(self, difficulty: str = None, category: str = None):
         """
         Obtiene una lista de todas las subcategorías distintas disponibles,
         opcionalmente filtradas por dificultad y/o categoría.
         """
-        sql = "SELECT DISTINCT subcategory FROM resources WHERE subcategory IS NOT NULL"
-        params = []
-        if difficulty:
-            sql += " AND difficulty ILIKE %s"
-            params.append(f"%{self._normalize_string(difficulty)}%")
-        if category:
-            sql += " AND category ILIKE %s"
-            params.append(f"%{self._normalize_string(category)}%")
-        sql += " ORDER BY subcategory ASC;"
+        if not self.notion:
+            self.connect()
+        if not self.notion:
+            return []
 
-        subcategories = []
-        conn = self.connect()
-        if conn:
-            try:
-                with conn.cursor() as cur:
-                    cur.execute(sql, params)
-                    rows = cur.fetchall()
-                    subcategories = [row[0] for row in rows if row[0] is not None]
-            except psycopg2.Error as e:
-                print(f"Error al obtener subcategorías distintas: {e}")
-            finally:
-                pass
-        return subcategories
+        subcategories = set()
+        filter_conditions = []
+        if difficulty:
+            filter_conditions.append({
+                "property": "difficulty",
+                "select": {"equals": self._normalize_string(difficulty)}
+            })
+        if category:
+            filter_conditions.append({
+                "property": "category",
+                "select": {"equals": self._normalize_string(category)}
+            })
+
+        query_filter = {}
+        if filter_conditions:
+            query_filter["and"] = filter_conditions
+
+        try:
+            pages = collect_paginated_api(
+                self.notion.databases.query,
+                database_id=self.notion_database_id,
+                filter=query_filter
+            )
+            for page in pages:
+                subcategory = page["properties"].get("subcategory", {}).get("select", {}).get("name")
+                if subcategory:
+                    subcategories.add(subcategory)
+        except Exception as e:
+            print(f"Error al obtener subcategorías distintas de Notion: {e}")
+        return sorted(list(subcategories))
 
 
 # Ejemplo de uso (solo para pruebas, no se ejecutará directamente en el bot)
 if __name__ == "__main__":
     # Asegúrate de tener estas variables en tu .env para que el ejemplo funcione
-    # DB_NAME=neurocogniciones_db
-    # DB_USER=nombre_usuario
-    # DB_PASSWORD=tu_contraseña_segura
-    # DB_HOST=localhost
-    # DB_PORT=5432
+    # NOTION_TOKEN="secret_YOUR_NOTION_INTEGRATION_TOKEN"
+    # NOTION_DATABASE_ID="YOUR_NOTION_DATABASE_ID"
 
     db_manager = DBManager()
 
     # Prueba de conexión
     if db_manager.connect():
-        print("Conexión de prueba exitosa.")
-        # Prueba de inserción con acentos y mayúsculas
-        print("\n--- Probando inserción de recurso con acentos y mayúsculas ---")
+        print("Conexión de prueba a Notion exitosa.")
+
+        # Prueba de inserción de recurso
+        print("\n--- Probando inserción de recurso en Notion ---")
         success = db_manager.insert_resource(
             resource_name="Guía de Productividad Avanzada",
-            link="https://ejemplo.com/guia_productividad",
+            link="https://ejemplo.com/guia_productividad_notion",
             category="Autogestión",
             subcategory="Gestión del Tiempo",
             difficulty="Avanzado"
@@ -272,27 +309,22 @@ if __name__ == "__main__":
         else:
             print("Fallo en la inserción del recurso de prueba.")
 
-        # Prueba de recuperación de recursos con diferentes casos y acentos
-        print("\n--- Probando recuperación de recursos (categoría 'APRENDIZAJE' con acento) ---")
-        learning_resources = db_manager.get_resources(category="APRENDIZAJE")
-        for res in learning_resources:
+        # Prueba de recuperación de recursos
+        print("\n--- Probando recuperación de recursos (categoría 'autogestion') ---")
+        autogestion_resources = db_manager.get_resources(category="autogestion")
+        for res in autogestion_resources:
             print(res)
 
-        print("\n--- Probando recuperación de recursos (dificultad 'basico' sin acento) ---")
+        print("\n--- Probando recuperación de recursos (dificultad 'basico') ---")
         basic_resources = db_manager.get_resources(difficulty="basico")
         for res in basic_resources:
             print(res)
 
         print("\n--- Probando recuperación de recursos (categoría 'autorregulacion', subcategoría 'ansiedad') ---")
-        anxiety_resources = db_manager.get_resources(category="autorregulacion", subcategory="ansiedad")
-        for res in anxiety_resources:
+        ansiedad_resources = db_manager.get_resources(category="autorregulacion", subcategory="ansiedad")
+        for res in ansiedad_resources:
             print(res)
 
-        print("\n--- Probando recuperación de recursos (categoría 'autogestion', subcategoría 'gestion del tiempo') ---")
-        time_management_resources = db_manager.get_resources(category="autogestion", subcategory="gestion del tiempo")
-        for res in time_management_resources:
-            print(res)
-        
         print("\n--- Probando obtención de dificultades distintas ---")
         difficulties = db_manager.get_distinct_difficulties()
         print(f"Dificultades distintas: {difficulties}")
@@ -305,8 +337,7 @@ if __name__ == "__main__":
         subcategories_autogestion_basico = db_manager.get_distinct_subcategories(difficulty="basico", category="autogestion")
         print(f"Subcategorías de autogestión (básico): {subcategories_autogestion_basico}")
 
-
     else:
-        print("No se pudo conectar a la base de datos para las pruebas.")
+        print("No se pudo conectar a la base de datos de Notion para las pruebas.")
 
-    db_manager.close() # Asegurarse de cerrar la conexión al finalizar
+    db_manager.close() # Asegurarse de "cerrar" el cliente al finalizar
