@@ -38,6 +38,21 @@ class TicketManagement(commands.Cog):
             await interaction.followup.send("❌ Error: No se encontró el rol de Soporte Técnico con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.", ephemeral=True)
             return
 
+        # Generar el nombre esperado del canal (debe ser consistente)
+        expected_channel_name_prefix = f"ayuda-tecnica-{user.name.lower().replace(' ', '-')}"
+        
+        # *** NUEVA LÓGICA: Verificar si el canal ya existe para el usuario ***
+        for channel in guild.channels:
+            if isinstance(channel, discord.TextChannel) and channel.category_id == config.AYUDA_TECNICA_CATEGORY_ID:
+                # Una forma más robusta de verificar si el canal pertenece al usuario
+                # Podríamos buscar el ID del usuario en el nombre del canal o en los permisos
+                # Para simplificar, buscamos el prefijo y si el usuario tiene permisos de lectura
+                if expected_channel_name_prefix in channel.name.lower():
+                    # Verificar si el usuario tiene permiso explícito para leer mensajes en este canal
+                    if channel.permissions_for(user).read_messages:
+                        await interaction.followup.send(f"Ya tienes un canal de ayuda técnica abierto: {channel.mention}. Por favor, usa ese canal para tu consulta.", ephemeral=True)
+                        return # Salir de la función si el canal ya existe
+
         # Definir permisos para el nuevo canal
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False), # Nadie puede ver el canal por defecto
@@ -56,8 +71,8 @@ class TicketManagement(commands.Cog):
                 await interaction.followup.send("❌ Error: No se encontró la categoría de Ayuda Técnica con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.", ephemeral=True)
                 return
 
-            # Crear el nombre del canal de forma única
-            channel_name = f"ayuda-tecnica-{user.name.lower().replace(' ', '-')}-{user.discriminator}"
+            # Crear el nombre del canal de forma única (añadiendo el ID del usuario para mayor unicidad)
+            channel_name = f"{expected_channel_name_prefix}-{user.id}"
             new_channel = await category.create_text_channel(channel_name, overwrites=overwrites)
 
             # Usar followup.send ya que la interacción ya fue respondida por MainMenuView
@@ -99,6 +114,17 @@ class TicketManagement(commands.Cog):
         user = interaction.user
         guild = interaction.guild
 
+        # Generar el nombre esperado del canal (debe ser consistente)
+        expected_channel_name_prefix = f"recursos-{user.name.lower().replace(' ', '-')}"
+
+        # *** NUEVA LÓGICA: Verificar si el canal ya existe para el usuario ***
+        for channel in guild.channels:
+            if isinstance(channel, discord.TextChannel) and channel.category_id == config.RESOURCES_CATEGORY_ID:
+                if expected_channel_name_prefix in channel.name.lower():
+                    if channel.permissions_for(user).read_messages:
+                        await interaction.followup.send(f"Ya tienes un canal de búsqueda de recursos abierto: {channel.mention}. Por favor, usa ese canal para continuar tu búsqueda.", ephemeral=True)
+                        return # Salir de la función si el canal ya existe
+
         # Definir permisos para el nuevo canal
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False), # Nadie puede ver el canal por defecto
@@ -117,8 +143,8 @@ class TicketManagement(commands.Cog):
                 await interaction.followup.send("❌ Error: No se encontró la categoría de Recursos con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.", ephemeral=True)
                 return
 
-            # Crear el nombre del canal de forma única
-            channel_name = f"recursos-{user.name.lower().replace(' ', '-')}-{user.discriminator}"
+            # Crear el nombre del canal de forma única (añadiendo el ID del usuario para mayor unicidad)
+            channel_name = f"{expected_channel_name_prefix}-{user.id}"
             new_channel = await category.create_text_channel(channel_name, overwrites=overwrites)
 
             await interaction.followup.send(
