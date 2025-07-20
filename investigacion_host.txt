@@ -4,3 +4,39 @@
 (4) Identificar cómo las plataformas facilitan la conexión con la base de datos de Notion, dado que el bot utiliza Notion para la gestión de datos a través de 'db_manager.py'.
 (5) Evaluar las características de escalabilidad y fiabilidad de las plataformas más prometedoras para asegurar que el bot pueda manejar un crecimiento potencial y mantener su operación 24/7.
 (6) Resumir las estrategias de despliegue recomendadas, destacando sus ventajas en términos de economía y eficiencia para un bot de Discord con integración de GitHub y base de datos en Notion.
+
+Para Prototipos y Desarrollo Rápido: Replit es la opción más sencilla por su editor integrado y facilidad de uso. Sin embargo, se debe tener en cuenta la necesidad de un servicio de ping externo para mantener el bot activo 24/7 sin costo.
+
+Para Estabilidad y Crecimiento Moderado (con posible costo mínimo): Render y Railway son alternativas sólidas. Ofrecen auto-despliegue y son más estables que Replit, pero sus tiers gratuitos tienen límites de horas que podrían no cubrir una operación 24/7 sin incurrir en pequeños costos.
+
+Para Usuarios Avanzados que Buscan Maximizar Recursos Gratuitos (con mayor complejidad): Oracle Cloud Free Tier es, con diferencia, la opción más generosa en recursos (CPU, RAM) y ofrece un verdadero 24/7 sin pings ni costo directo. No obstante, exige conocimientos de administración de sistemas (Linux VM) y una mayor inversión de tiempo en la configuración.
+
+Para Bots con Escala-a-Cero y Despliegue Automatizado: Fly.io es una excelente opción que equilibra la eficiencia de costos con la capacidad de escalar. Su modelo de "scale-to-zero" es muy eficiente para bots que no necesitan estar constantemente activos, pero que pueden escalar rápidamente bajo demanda. Requiere familiaridad con Docker y la interfaz de línea de comandos.
+
+ - Despliegue con GitHub:
+
+    Replit: La conexión a un repositorio de GitHub es un paso directo al crear un nuevo proyecto o al importar código existente.   
+
+    Heroku (referencia histórica): En la pestaña "Deploy", se seleccionaba la opción para conectar la aplicación a GitHub y se habilitaban los despliegues automáticos. Es importante recordar que Heroku ya no ofrece un tier gratuito para la operación 24/7.   
+
+    Render: La conexión del repositorio de GitHub y el auto-despliegue en cada push son características estándar y fáciles de configurar.   
+
+    Railway: La integración con GitHub es una característica clave y muy amigable, permitiendo despliegues automáticos sin esfuerzo adicional.   
+
+    Fly.io: Ofrece auto-despliegue al hacer push a GitHub, ya sea a través de su nueva interfaz de usuario de "Launch" o mediante la configuración de GitHub Actions. Para GitHub Actions, se requiere configurar    
+
+    FLY_API_TOKEN y DISCORD_TOKEN como secretos en el repositorio de GitHub Actions.   
+
+    Square Cloud: La plataforma menciona "Continuous integration" y la implementación automática de cambios cada vez que se realiza un push a GitHub.   
+
+ - Resumen de las Soluciones Más Adecuadas según los Requisitos:
+    Para la máxima facilidad de uso y prototipado rápido: Replit es una opción viable. Su entorno de desarrollo integrado y su sencilla conexión con GitHub lo hacen ideal para empezar rápidamente. Sin embargo, para asegurar una operación 24/7 en su tier gratuito, se requerirá la implementación de un servicio de ping externo.
+
+    Para un equilibrio entre facilidad de uso, auto-despliegue y un rendimiento razonable con un costo potencialmente bajo: Render o Railway son excelentes alternativas. Ambas ofrecen una buena integración con GitHub para el despliegue automático y un soporte robusto para Python. Sus tiers gratuitos, aunque limitados en horas, pueden ser suficientes para bots de bajo consumo, aunque podrían incurrir en costos mínimos si el uso es constante o requerir servicios de ping para una continuidad estricta.
+
+    Para el usuario avanzado que prioriza la máxima asignación de recursos gratuitos y un verdadero 24/7 sin pings: Oracle Cloud Free Tier es la opción más potente. Ofrece una cantidad de recursos significativamente mayor que otras plataformas gratuitas, garantizando una operación continua. Sin embargo, esta ventaja viene con la contrapartida de una mayor complejidad en la configuración y el mantenimiento de la Máquina Virtual, requiriendo conocimientos de administración de sistemas.
+
+    Para bots con escala-a-cero y despliegue automatizado: Fly.io ofrece una solución moderna que es muy eficiente en costos para bots que no necesitan estar constantemente activos, pero que pueden escalar rápidamente bajo demanda. Su modelo de "scale-to-zero" minimiza el consumo de recursos cuando el bot está inactivo, aunque puede introducir una pequeña latencia inicial.
+
+
+
