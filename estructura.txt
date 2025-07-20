@@ -11,7 +11,7 @@
 │   └── resources.py                # Gestión de problemas, recursos y flujos de usuario
 ├── database/                   # Módulo para la interacción con la base de datos
 │   ├── __init__.py
-│   └── db_manager.py               # Lógica para PostgreSQL y gestión de recursos
+│   └── db_manager.py               # Lógica para Notion y gestión de recursos
 ├── views/                      # Componentes de la interfaz de usuario (Discord Views)
 │   ├── __init__.py
 │   └── main_menu.py                # Vistas y botones del menú principal

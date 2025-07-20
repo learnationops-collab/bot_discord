@@ -1,0 +1,6 @@
+(1) Investigar plataformas de alojamiento en la nube adecuadas para bots de Discord en Python que ofrezcan operación 24/7 y tengan opciones económicas o niveles gratuitos.
+(2) Analizar cómo estas plataformas se integran con GitHub para el despliegue continuo, buscando la automatización del despliegue al actualizar la rama principal.
+(3) Comparar los modelos de precios y la eficiencia de las plataformas identificadas, considerando la facilidad de configuración, el mantenimiento y el consumo de recursos para un bot con la estructura descrita en 'estructura.txt'.
+(4) Identificar cómo las plataformas facilitan la conexión con la base de datos de Notion, dado que el bot utiliza Notion para la gestión de datos a través de 'db_manager.py'.
+(5) Evaluar las características de escalabilidad y fiabilidad de las plataformas más prometedoras para asegurar que el bot pueda manejar un crecimiento potencial y mantener su operación 24/7.
+(6) Resumir las estrategias de despliegue recomendadas, destacando sus ventajas en términos de economía y eficiencia para un bot de Discord con integración de GitHub y base de datos en Notion.
