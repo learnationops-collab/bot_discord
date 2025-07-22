@@ -178,16 +178,48 @@ class TicketManagement(commands.Cog):
         channel_name = ctx.channel.name.lower()
         # Verificación simple basada en el prefijo del nombre del canal
         if "ayuda-tecnica-" in channel_name or "atencion-cliente-" in channel_name or "recursos-" in channel_name:
-            await ctx.send("Cerrando este canal de soporte en 5 segundos...", delete_after=5)
+            # Primero, intenta enviar un mensaje de confirmación
+            try:
+                await ctx.send("Cerrando este canal de soporte en 5 segundos...")
+            except discord.errors.NotFound:
+                # Si el canal ya no existe, simplemente retorna
+                print(f"Advertencia: El canal {ctx.channel.name} ya no existe al intentar enviar mensaje de cierre.")
+                return
+            except Exception as e:
+                print(f"Error al enviar mensaje de cierre en el canal {ctx.channel.name}: {e}")
+                # Si no se puede enviar el mensaje, aún se puede intentar eliminar el canal
+                pass # Continuar para intentar eliminar el canal
+
             await asyncio.sleep(5) # Espera antes de eliminar el canal
             try:
                 await ctx.channel.delete() # Intenta eliminar el canal
             except discord.Forbidden:
-                await ctx.send("❌ No tengo permisos para eliminar este canal. Por favor, contacta a un administrador.")
+                # Si el bot no tiene permisos para eliminar el canal
+                try:
+                    await ctx.send("❌ No tengo permisos para eliminar este canal. Por favor, contacta a un administrador.")
+                except discord.errors.NotFound:
+                    print(f"Advertencia: El canal {ctx.channel.name} ya no existe al intentar enviar mensaje de error de permisos.")
+                except Exception as e_send:
+                    print(f"Error al enviar mensaje de error de permisos en el canal {ctx.channel.name}: {e_send}")
+            except discord.errors.NotFound:
+                # Si el canal ya fue eliminado por otra entidad (ej. un usuario, otro bot)
+                print(f"Advertencia: El canal {ctx.channel.name} ya fue eliminado antes de que el bot pudiera hacerlo.")
             except Exception as e:
-                await ctx.send(f"❌ Ocurrió un error al intentar cerrar el canal: `{e}`")
+                # Captura cualquier otro error inesperado durante la eliminación del canal
+                try:
+                    await ctx.send(f"❌ Ocurrió un error al intentar cerrar el canal: `{e}`")
+                except discord.errors.NotFound:
+                    print(f"Advertencia: El canal {ctx.channel.name} ya no existe al intentar enviar mensaje de error general.")
+                except Exception as e_send:
+                    print(f"Error al enviar mensaje de error general en el canal {ctx.channel.name}: {e_send}")
         else:
-            await ctx.send("Este comando solo puede usarse en un canal de soporte técnico, de atención al cliente o de búsqueda de recursos.", ephemeral=True)
+            # Si el comando se usa en un canal que no es de ticket
+            try:
+                await ctx.send("Este comando solo puede usarse en un canal de soporte técnico, de atención al cliente o de búsqueda de recursos.", ephemeral=True)
+            except discord.errors.NotFound:
+                print(f"Advertencia: El canal {ctx.channel.name} ya no existe al intentar enviar mensaje de uso incorrecto.")
+            except Exception as e:
+                print(f"Error al enviar mensaje de uso incorrecto en el canal {ctx.channel.name}: {e}")
 
 # La función setup es necesaria para que Discord.py cargue el cog
 async def setup(bot):

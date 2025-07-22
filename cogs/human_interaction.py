@@ -38,10 +38,7 @@ class HumanInteraction(commands.Cog):
                 conversation_state['state'] = 2
                 await message.channel.send("**2. ¿Qué soluciones has intentado hasta ahora?**")
             elif current_question_number == 2:
-                conversation_state['state'] = 3
-                await message.channel.send("**3. ¿Estás comprometido/a a seguir las indicaciones para resolverlo?**")
-            elif current_question_number == 3:
-                # Todas las preguntas respondidas, crear canal de atención al cliente
+                # Todas las preguntas respondidas (se eliminó la pregunta 3)
                 config.user_conversations[user_id]['state'] = 0 # Reiniciar estado
                 
                 guild = message.guild
