@@ -74,7 +74,7 @@ class Commands(commands.Cog):
             elif isinstance(ctx_or_interaction, discord.Interaction):
                 await interaction.followup.send(message, ephemeral=True)
             else:
-                await ctx.send(message, delete_after=15) # Eliminar el mensaje después de 15 segundos
+                await ctx.send(message) # No eliminar el mensaje
             return
 
         # Lógica original para canales públicos
@@ -92,9 +92,8 @@ class Commands(commands.Cog):
                 # Si es un comando o una interacción ya respondida, usar la función de envío normal
                 view.message = await send_func("Hola, soy el Bot de Neurocogniciones. ¿Cómo puedo ayudarte hoy?", view=view)
                 
-            # Nota: La lógica para deshabilitar botones y eliminar el mensaje
-            # en caso de timeout o finalización de la interacción se maneja
-            # dentro de las clases de View (en views/main_menu.py).
+            # Nota: La lógica para deshabilitar botones en caso de timeout o finalización de la interacción
+            # se maneja dentro de las clases de View (en views/main_menu.py).
                 
         except Exception as e:
             if isinstance(ctx_or_interaction, commands.Context):
@@ -149,28 +148,28 @@ class Commands(commands.Cog):
             try:
                 # Elimina todos los mensajes del canal
                 await ctx.channel.purge()
-                await ctx.send(f"✅ Se eliminaron todos los mensajes del canal.", delete_after=3)
+                await ctx.send(f"✅ Se eliminaron todos los mensajes del canal.") # No eliminar el mensaje
             except discord.Forbidden:
-                await ctx.send("❌ No tengo los permisos necesarios para eliminar mensajes. Asegúrate de que el bot tenga el permiso 'Gestionar mensajes'.", delete_after=5)
+                await ctx.send("❌ No tengo los permisos necesarios para eliminar mensajes. Asegúrate de que el bot tenga el permiso 'Gestionar mensajes'.") # No eliminar el mensaje
             except Exception as e:
-                await ctx.send(f"❌ Ocurrió un error al intentar limpiar mensajes: `{e}`", delete_after=5)
+                await ctx.send(f"❌ Ocurrió un error al intentar limpiar mensajes: `{e}`") # No eliminar el mensaje
                 print(f"Error en el comando limpiar (todos los mensajes): {e}")
         else:
             try:
                 cantidad = int(cantidad_o_asterisco)
                 if cantidad <= 0:
-                    await ctx.send("❌ La cantidad de mensajes a eliminar debe ser un número positivo.", delete_after=5)
+                    await ctx.send("❌ La cantidad de mensajes a eliminar debe ser un número positivo.") # No eliminar el mensaje
                     return
 
                 # +1 para incluir el mensaje del comando 'limpiar'
                 await ctx.channel.purge(limit=cantidad + 1)
-                await ctx.send(f"✅ Se eliminaron {cantidad} mensajes del canal.", delete_after=3)
+                await ctx.send(f"✅ Se eliminaron {cantidad} mensajes del canal.") # No eliminar el mensaje
             except ValueError:
-                await ctx.send("❌ Error: El argumento debe ser un número entero o '*'. Usa `&limpiar <cantidad>` o `&limpiar *`.", delete_after=5)
+                await ctx.send("❌ Error: El argumento debe ser un número entero o '*'. Usa `&limpiar <cantidad>` o `&limpiar *`.") # No eliminar el mensaje
             except discord.Forbidden:
-                await ctx.send("❌ No tengo los permisos necesarios para eliminar mensajes. Asegúrate de que el bot tenga el permiso 'Gestionar mensajes'.", delete_after=5)
+                await ctx.send("❌ No tengo los permisos necesarios para eliminar mensajes. Asegúrate de que el bot tenga el permiso 'Gestionar mensajes'.") # No eliminar el mensaje
             except Exception as e:
-                await ctx.send(f"❌ Ocurrió un error al intentar limpiar mensajes: `{e}`", delete_after=5)
+                await ctx.send(f"❌ Ocurrió un error al intentar limpiar mensajes: `{e}`") # No eliminar el mensaje
                 print(f"Error en el comando limpiar (cantidad específica): {e}")
 
     @limpiar.error
@@ -179,14 +178,14 @@ class Commands(commands.Cog):
         Manejador de errores para el comando 'limpiar'.
         """
         if isinstance(error, commands.MissingRequiredArgument):
-            await ctx.send("❌ Error: Faltan argumentos. Usa `&limpiar <cantidad>` para eliminar un número específico de mensajes o `&limpiar *` para eliminar todos.", delete_after=5)
+            await ctx.send("❌ Error: Faltan argumentos. Usa `&limpiar <cantidad>` para eliminar un número específico de mensajes o `&limpiar *` para eliminar todos.") # No eliminar el mensaje
         elif isinstance(error, commands.BadArgument):
             # Este error ahora es manejado dentro de la función limpiar para 'ValueError'
-            await ctx.send("❌ Error: El argumento debe ser un número entero o '*'. Usa `&limpiar <cantidad>` o `&limpiar *`.", delete_after=5)
+            await ctx.send("❌ Error: El argumento debe ser un número entero o '*'. Usa `&limpiar <cantidad>` o `&limpiar *`.") # No eliminar el mensaje
         elif isinstance(error, commands.MissingPermissions):
-            await ctx.send("❌ No tienes los permisos necesarios para usar este comando. Necesitas el permiso 'Gestionar mensajes'.", delete_after=5)
+            await ctx.send("❌ No tienes los permisos necesarios para usar este comando. Necesitas el permiso 'Gestionar mensajes'.") # No eliminar el mensaje
         else:
-            await ctx.send(f"❌ Ocurrió un error inesperado con el comando limpiar: `{error}`", delete_after=5)
+            await ctx.send(f"❌ Ocurrió un error inesperado con el comando limpiar: `{error}`") # No eliminar el mensaje
             print(f"Error inesperado en limpiar_error: {error}")
 
 # La función setup es necesaria para que Discord.py cargue el cog
