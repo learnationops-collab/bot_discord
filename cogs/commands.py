@@ -7,7 +7,8 @@ import asyncio # Necesario para el sleep en el comando limpiar
 import config # Importa la configuración para acceder a user_conversations
 from utils.helpers import get_help_message # Importa la función de ayuda
 # Importar las vistas aquí. Asumimos que views/main_menu.py existirá.
-from views.main_menu import MainMenuView, CloseTicketView, DifficultySelectionView # Se importará cuando se cree el archivo
+# CloseTicketView ya no se importa aquí
+from views.main_menu import MainMenuView, DifficultySelectionView 
 
 class Commands(commands.Cog):
     """
@@ -25,13 +26,11 @@ class Commands(commands.Cog):
         # Determinar si el argumento es un Context o una Interaction
         if isinstance(ctx_or_interaction, commands.Context):
             ctx = ctx_or_interaction
-            channel = ctx.channel
             send_func = ctx.send
             response_func = ctx.send # Para compatibilidad, aunque no es una respuesta de interacción
         elif isinstance(ctx_or_interaction, discord.Interaction):
             interaction = ctx_or_interaction
             ctx = None # No hay Context object en este caso
-            channel = interaction.channel
             # Para interacciones, la primera respuesta debe ser con interaction.response.send_message
             # Las respuestas subsiguientes pueden ser con interaction.followup.send
             if interaction.response.is_done():
@@ -43,41 +42,7 @@ class Commands(commands.Cog):
             print(f"Tipo de argumento inesperado para iniciar: {type(ctx_or_interaction)}")
             return
 
-        channel_name = channel.name.lower()
-
-        # Si el comando se usa en un canal de recursos, reiniciar la búsqueda de recursos
-        if "recursos-" in channel_name:
-            if isinstance(ctx_or_interaction, discord.Interaction) and not interaction.response.is_done():
-                await interaction.response.defer() # Deferir la interacción si no ha sido respondida
-
-            difficulty_view = DifficultySelectionView(self.bot)
-            message_content = "Has solicitado reiniciar la búsqueda de recursos. Por favor, selecciona la dificultad:"
-            
-            if isinstance(ctx_or_interaction, discord.Interaction):
-                # Si es una interacción, usar followup.send
-                difficulty_view.message = await interaction.followup.send(message_content, view=difficulty_view)
-            else:
-                # Si es un comando, usar ctx.send
-                difficulty_view.message = await ctx.send(message_content, view=difficulty_view)
-            return
-        
-        # Si el comando se usa en un canal de ayuda técnica o atención al cliente, no permitir iniciar
-        elif "ayuda-tecnica-" in channel_name or "atencion-cliente-" in channel_name:
-            message = (
-                "Este comando está diseñado para usarse en canales públicos para iniciar una nueva interacción.\n"
-                "Actualmente te encuentras en un canal de soporte/recursos. "
-                "Si deseas iniciar una nueva interacción, por favor, cierra este canal con el botón 'Cerrar Ticket' "
-                "o el comando `&cerrar_ticket` y usa `&iniciar` en un canal público."
-            )
-            if isinstance(ctx_or_interaction, discord.Interaction) and not interaction.response.is_done():
-                await interaction.response.send_message(message, ephemeral=True)
-            elif isinstance(ctx_or_interaction, discord.Interaction):
-                await interaction.followup.send(message, ephemeral=True)
-            else:
-                await ctx.send(message) # No eliminar el mensaje
-            return
-
-        # Lógica original para canales públicos
+        # Lógica para canales públicos (ahora todo sucede aquí)
         try:
             # Se pasa la instancia del bot (self.bot) a MainMenuView
             view = MainMenuView(self.bot)
@@ -110,30 +75,11 @@ class Commands(commands.Cog):
     @commands.command(name='ayuda', help='Muestra información sobre los comandos disponibles y cómo usarlos.')
     async def ayuda(self, ctx):
         """
-        Muestra los comandos disponibles del bot y una breve descripción de cómo usarlos,
-        adaptándose al tipo de canal.
+        Muestra los comandos disponibles del bot y una breve descripción de cómo usarlos.
+        Ahora es un mensaje de ayuda general.
         """
-        channel_name = ctx.channel.name.lower()
-
-        if "recursos-" in channel_name:
-            help_message = (
-                "📚 **Ayuda para la Búsqueda de Recursos:**\n\n"
-                "Estás en un canal de búsqueda de recursos.\n"
-                "• Utiliza los botones para seleccionar la dificultad, categoría y subcategoría de los recursos.\n"
-                "• Si deseas reiniciar la búsqueda, usa el comando `&iniciar`.\n"
-                "• Para cerrar este canal, usa el botón 'Cerrar Ticket' o el comando `&cerrar_ticket`."
-            )
-        elif "ayuda-tecnica-" in channel_name or "atencion-cliente-" in channel_name:
-            help_message = (
-                "ℹ️ **Ayuda en Canales de Soporte/Atención:**\n\n"
-                "Estás en un canal de soporte o atención al cliente.\n"
-                "• Por favor, describe tu problema a nuestro equipo.\n"
-                "• Para cerrar este canal, usa el botón 'Cerrar Ticket' o el comando `&cerrar_ticket`.\n"
-                "• El comando `&iniciar` solo funciona en canales públicos."
-            )
-        else:
-            # Mensaje de ayuda para canales públicos
-            help_message = get_help_message(self.bot.commands)
+        # Mensaje de ayuda general, ya que todo sucede en el mismo canal
+        help_message = get_help_message(self.bot.commands)
         
         await ctx.send(help_message)
 
