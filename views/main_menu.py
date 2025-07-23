@@ -9,51 +9,7 @@ from database.db_manager import DBManager
 # Instancia global del DBManager para ser utilizada por las vistas
 db_manager = DBManager()
 
-class CloseTicketView(discord.ui.View):
-    """
-    Vista que contiene un botón para cerrar un canal de ticket.
-    """
-    def __init__(self, channel_to_close: discord.TextChannel):
-        super().__init__(timeout=300) # 5 minutos de timeout para el botón
-        self.channel_to_close = channel_to_close
-        self.message = None # Para almacenar el mensaje
-
-    async def on_timeout(self):
-        """
-        Se ejecuta cuando el tiempo de espera de la vista ha expirado.
-        Deshabilita todos los botones.
-        """
-        for item in self.children:
-            item.disabled = True
-        if self.message:
-            try:
-                # No eliminar el mensaje, solo deshabilitar los botones
-                await self.message.edit(content="Este mensaje de cierre de ticket ha expirado.", view=self)
-            except discord.NotFound:
-                print("Mensaje de CloseTicketView no encontrado al intentar editar en timeout.")
-            except Exception as e:
-                print(f"Error al editar mensaje de CloseTicketView en timeout: {e}")
-
-    @discord.ui.button(label="Cerrar Ticket", style=discord.ButtonStyle.red, custom_id="close_ticket", emoji="❌")
-    async def close_ticket_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        """
-        Cierra el canal de soporte actual cuando se hace clic en el botón.
-        """
-        await interaction.response.send_message("Cerrando este canal de soporte en 5 segundos...", ephemeral=False)
-        # Deshabilita el botón inmediatamente para evitar clics múltiples
-        for item in self.children:
-            item.disabled = True
-        await interaction.message.edit(view=self)
-
-        await asyncio.sleep(5) # Espera 5 segundos antes de eliminar el canal
-        try:
-            await self.channel_to_close.delete()
-        except discord.Forbidden:
-            await interaction.followup.send("❌ No tengo permisos para eliminar este canal. Por favor, contacta a un administrador.", ephemeral=True)
-        except Exception as e:
-            await interaction.followup.send(f"❌ Ocurrió un error al intentar cerrar el canal: `{e}`", ephemeral=True)
-            print(f"Error al cerrar el canal {self.channel_to_close.name}: {e}")
-
+# La clase CloseTicketView se elimina ya que no se crearán nuevos canales de ticket.
 
 class ResourceDisplayView(discord.ui.View):
     """
@@ -289,8 +245,6 @@ class DifficultySelectionView(discord.ui.View):
         self.bot = bot
         self.message = None # Para almacenar el mensaje
 
-        self._add_difficulty_buttons()
-
     async def on_timeout(self):
         """
         Se ejecuta cuando el tiempo de espera de la vista ha expirado.
@@ -375,83 +329,78 @@ class MainMenuView(discord.ui.View):
             except Exception as e:
                 print(f"Error al editar mensaje de MainMenuView en timeout: {e}")
 
-    @discord.ui.button(label="Ayuda Técnica", style=discord.ButtonStyle.primary, custom_id="technical_help", emoji="🛠️")
+    @discord.ui.button(label="Ayuda Técnica", style=discord.ButtonStyle.primary, custom_id="technical_help", emoji="🛠️",
+                       row=0)
     async def technical_help_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """
         Maneja la interacción cuando se hace clic en el botón 'Ayuda Técnica'.
-        Delega la creación del ticket al cog de `TicketManagement`.
+        Inicia el flujo de ayuda técnica directamente en el canal actual.
         """
-        # 1. Deferir la interacción inmediatamente para evitar el error "Unknown interaction"
-        await interaction.response.defer() 
-
-        # 2. Deshabilita los botones del menú principal para esta interacción
+        await interaction.response.defer() # Deferir la interacción para que no expire
+        
+        # Deshabilitar todos los botones de este mensaje
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(content="Has seleccionado 'Ayuda Técnica'. Creando tu canal de soporte...", view=self) # Actualiza el mensaje original con los botones deshabilitados
+        await interaction.message.edit(content="Has seleccionado 'Ayuda Técnica'. Por favor, describe tu problema técnico aquí y un miembro de nuestro equipo te ayudará.", view=self)
         
-        # 3. Llama a la lógica del cog de gestión de tickets
-        ticket_cog = self.bot.get_cog("TicketManagement")
-        if ticket_cog:
-            await ticket_cog.create_technical_ticket(interaction)
+        # Obtener el rol de soporte técnico y mencionarlo
+        if config.SOPORTE_TECNICO_ROLE_ID:
+            support_role = interaction.guild.get_role(config.SOPORTE_TECNICO_ROLE_ID)
+            if support_role:
+                await interaction.followup.send(f"{support_role.mention}, un usuario necesita ayuda técnica en este canal. Por favor, revisen la conversación.")
+            else:
+                await interaction.followup.send("❌ Error: No se encontró el rol de Soporte Técnico con el ID configurado. Contacta a un administrador.", ephemeral=True)
         else:
-            await interaction.followup.send("❌ Error interno: El módulo de gestión de tickets no está cargado. Contacta a un administrador.", ephemeral=True)
-        
-        # No eliminar el mensaje original, solo deshabilitar los botones.
+            await interaction.followup.send("❌ Error de configuración: El ID del rol de Soporte Técnico no está definido. Contacta a un administrador.", ephemeral=True)
 
-    @discord.ui.button(label="Necesito un Recurso", style=discord.ButtonStyle.success, custom_id="request_resource", emoji="📚")
+    @discord.ui.button(label="Necesito un Recurso", style=discord.ButtonStyle.success, custom_id="request_resource", emoji="📚",
+                       row=0)
     async def request_resource_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """
         Maneja la interacción cuando se hace clic en el botón 'Necesito un Recurso'.
-        Inicia el flujo de selección de recursos creando un canal privado.
+        Inicia el flujo de selección de recursos en el canal actual.
         """
-        # 1. Deferir la interacción inmediatamente para evitar el error "Unknown interaction"
-        await interaction.response.defer() 
+        await interaction.response.defer() # Deferir la interacción para que no expire
 
-        # 2. Deshabilita los botones del menú principal para esta interacción
+        # Deshabilitar los botones del menú principal para esta interacción
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(content="Has seleccionado 'Necesito un Recurso'. Iniciando búsqueda en un canal privado...", view=self) # Actualiza el mensaje original con los botones deshabilitados
+        await interaction.message.edit(content="Has seleccionado 'Necesito un Recurso'.", view=self)
         
-        # 3. Llama a la lógica del cog de gestión de tickets para crear el canal de recursos
-        ticket_cog = self.bot.get_cog("TicketManagement")
-        if ticket_cog:
-            await ticket_cog.create_resource_search_channel(interaction)
-        else:
-            await interaction.followup.send("❌ Error interno: El módulo de gestión de tickets no está cargado. Contacta a un administrador.", ephemeral=True)
-        
-        # No eliminar el mensaje original, solo deshabilitar los botones.
+        # Iniciar el flujo de selección de recursos en el mismo canal
+        difficulty_view = DifficultySelectionView(self.bot)
+        await interaction.followup.send("Por favor, selecciona la dificultad del recurso:", view=difficulty_view)
+        difficulty_view.message = interaction.message # Asignar el mensaje para timeout
 
 
-    @discord.ui.button(label="Hablar con un Humano", style=discord.ButtonStyle.danger, custom_id="human_contact", emoji="🙋")
+    @discord.ui.button(label="Hablar con un Humano", style=discord.ButtonStyle.danger, custom_id="human_contact", emoji="❓", # Cambiado de "🙋" a "❓"
+                       row=0)
     async def human_contact_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """
         Maneja la interacción cuando se hace clic en el botón 'Hablar con un Humano'.
-        Inicia un flujo de preguntas para recopilar información, gestionado por el cog de interacción humana.
+        Inicia un flujo de preguntas para recopilar información, gestionado por el cog de interacción humana,
+        todo en el canal actual.
         """
-        # 1. Deferir la interacción inmediatamente para evitar el error "Unknown interaction"
-        await interaction.response.defer()
+        await interaction.response.defer() # Deferir la interacción para que no expire
 
-        # 2. Deshabilita los botones del menú principal para esta interacción
+        # Deshabilitar los botones del menú principal para esta interacción
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(content="Has seleccionado 'Hablar con un Humano'. Iniciando conversación...", view=self) # Actualiza el mensaje original con los botones deshabilitados
+        await interaction.message.edit(content="Has seleccionado 'Hablar con un Humano'.", view=self)
 
         user_id = interaction.user.id
         if user_id in config.user_conversations and config.user_conversations[user_id]['state'] != 0:
             await interaction.followup.send("Ya tienes una conversación en curso para contactar a un humano. Por favor, completa esa conversación o espera.", ephemeral=True)
-            # No eliminamos el mensaje original aquí si el flujo no continúa con un nuevo mensaje
             return
 
-        # 3. Inicializa el estado de la conversación y envía la primera pregunta
-        config.user_conversations[user_id] = {'state': 1, 'answers': [], 'channel_id': None}
+        # Inicializa el estado de la conversación y envía la primera pregunta
+        config.user_conversations[user_id] = {'state': 1, 'answers': [], 'channel_id': interaction.channel.id} # Guardar el ID del canal actual
         await interaction.followup.send(
             "Para poder ayudarte mejor y que un miembro de nuestro equipo te contacte, "
             "por favor, responde a la primera pregunta en este chat:\n\n"
             "**1. ¿Cuál es el problema principal que tienes?**",
             ephemeral=False
         )
-        
-        # No eliminar el mensaje original, solo deshabilitar los botones.
 
 # Este archivo no necesita una función `setup` porque solo contiene clases de vista,
 # que serán instanciadas y utilizadas por los cogs o comandos del bot.
