@@ -4,8 +4,8 @@
 from notion_client import Client
 from notion_client.helpers import collect_paginated_api
 import asyncio
-import os # Necesario para el ejemplo de uso
-import datetime # Necesario para el ejemplo de uso
+import os
+import datetime
 
 class NotionService:
     """
@@ -19,7 +19,7 @@ class NotionService:
         self.notion_token = notion_token
         self.notion_client = None # El cliente de Notion se inicializará en connect
 
-    def connect(self):
+    def connect(self): # <--- CAMBIO AQUÍ: Ya NO es un método asíncrono
         """
         Inicializa el cliente de Notion utilizando el token de integración.
         Retorna True si la inicialización fue exitosa, False en caso contrario.
@@ -127,6 +127,7 @@ if __name__ == "__main__":
 
         service = NotionService(test_token)
 
+        # CAMBIO AQUÍ: Ya NO se usa await en service.connect()
         if service.connect():
             print("\n--- Probando inserción de página ---")
             # Asegúrate de que las propiedades coincidan con tu base de datos de Notion
@@ -151,11 +152,9 @@ if __name__ == "__main__":
                 print(f"Página encontrada (con filtro): {page.get('properties', {}).get('resource_name', {}).get('title', [{}])[0].get('plain_text')}")
 
             print("\n--- Probando consulta de base de datos sin filtro ---")
-            # Aquí se pasará un filtro vacío, que ahora será omitido en la llamada a la API
             pages_without_filter = await service.query_database(database_id=test_db_id, filter={})
             for page in pages_without_filter:
                 print(f"Página encontrada (sin filtro): {page.get('properties', {}).get('resource_name', {}).get('title', [{}])[0].get('plain_text')}")
-
 
         else:
             print("No se pudo conectar a NotionService para las pruebas.")

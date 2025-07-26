@@ -45,7 +45,7 @@ class DBManager:
         normalized_text = unicodedata.normalize('NFKD', text).encode('ascii', 'ignore').decode('utf-8')
         return normalized_text.lower()
 
-    def connect(self):
+    async def connect(self): # Este método sigue siendo asíncrono
         """
         Inicializa el cliente de NotionService.
         Retorna el objeto de cliente de NotionService si es exitoso, None en caso de error.
@@ -55,6 +55,7 @@ class DBManager:
                 # Pasamos el token al NotionService
                 self.notion_service = NotionService(self.notion_token)
                 # El NotionService se encargará de inicializar el cliente de Notion
+                # CAMBIO AQUÍ: Ya NO se usa await en self.notion_service.connect()
                 if self.notion_service.connect():
                     print("Cliente de NotionService inicializado exitosamente.")
                 else:
@@ -62,7 +63,7 @@ class DBManager:
             except Exception as e:
                 print(f"Error al inicializar el cliente de NotionService: {e}")
                 self.notion_service = None # Asegurarse de que el cliente sea None si falla
-        return self.notion_service
+        return self.notion_service is not None # Retorna True si la conexión fue exitosa
 
     def close(self):
         """
@@ -80,7 +81,7 @@ class DBManager:
         Delega la operación al NotionService.
         """
         if not self.notion_service:
-            self.connect()
+            await self.connect()
         if not self.notion_service:
             return False
 
@@ -107,7 +108,7 @@ class DBManager:
         Delega la operación al NotionService.
         """
         if not self.notion_service:
-            self.connect()
+            await self.connect()
         if not self.notion_service:
             return []
 
@@ -165,7 +166,7 @@ class DBManager:
         Delega la operación al NotionService.
         """
         if not self.notion_service:
-            self.connect()
+            await self.connect()
         if not self.notion_service:
             return []
 
@@ -186,7 +187,7 @@ class DBManager:
         Delega la operación al NotionService.
         """
         if not self.notion_service:
-            self.connect()
+            await self.connect()
         if not self.notion_service:
             return []
 
@@ -219,7 +220,7 @@ class DBManager:
         Delega la operación al NotionService.
         """
         if not self.notion_service:
-            self.connect()
+            await self.connect()
         if not self.notion_service:
             return []
 
@@ -257,7 +258,7 @@ class DBManager:
         Delega la operación al NotionService.
         """
         if not self.notion_service:
-            self.connect()
+            await self.connect()
         if not self.notion_service:
             return False
 
@@ -285,7 +286,7 @@ class DBManager:
         Delega la operación al NotionService.
         """
         if not self.notion_service:
-            self.connect()
+            await self.connect()
         if not self.notion_service:
             return []
 
@@ -354,11 +355,9 @@ if __name__ == "__main__":
     async def test_db_manager():
         db_manager = DBManager()
 
-        # Prueba de conexión
-        if db_manager.connect():
+        if await db_manager.connect():
             print("Conexión de prueba a Notion exitosa.")
 
-            # --- Pruebas de Recursos ---
             print("\n--- Probando inserción de recurso en Notion ---")
             success = await db_manager.insert_resource(
                 resource_name="Guía de Productividad Avanzada",
@@ -377,11 +376,10 @@ if __name__ == "__main__":
             for res in autogestion_resources:
                 print(res)
 
-            print("\n--- Probando obtención de dificultades distintas ---")
+            print("\n--- Probando obtención de dificultades distintas ---\n")
             difficulties = await db_manager.get_distinct_difficulties()
             print(f"Dificultades distintas: {difficulties}")
 
-            # --- Pruebas de Ventas ---
             print("\n--- Probando inserción de reporte de ventas en Notion ---")
             sales_success = await db_manager.insert_sales_report(
                 date="2025-07-25",
@@ -395,7 +393,7 @@ if __name__ == "__main__":
             else:
                 print("Fallo en la inserción del reporte de ventas de prueba.")
 
-            print("\n--- Probando recuperación de datos de ventas (producto 'Servicio Premium') ---")
+            print("\n--- Probando recuperación de datos de ventas (producto 'Servicio Premium') ---\n")
             sales_data = await db_manager.get_sales_data(product="Servicio Premium")
             for data in sales_data:
                 print(data)
@@ -403,7 +401,7 @@ if __name__ == "__main__":
         else:
             print("No se pudo conectar a la base de datos de Notion para las pruebas.")
 
-        db_manager.close() # Asegurarse de "cerrar" el cliente al finalizar
+        db_manager.close()
 
     import asyncio
     asyncio.run(test_db_manager())

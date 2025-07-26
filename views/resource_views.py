@@ -51,7 +51,15 @@ class ResourceDisplayView(discord.ui.View):
         # Deshabilitar todos los botones de la vista actual
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(view=self)
+        # No intentamos editar interaction.message aquí, ya que el siguiente paso enviará un nuevo mensaje
+        # Si self.message está asignado, podemos intentar editarlo para deshabilitar los botones
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.NotFound:
+                print("Advertencia: Mensaje de ResourceDisplayView no encontrado al intentar deshabilitar botones. Continuando.")
+            except Exception as e:
+                print(f"Error al deshabilitar botones en ResourceDisplayView: {e}")
 
         # Obtener el cog de comandos para llamar a la función iniciar
         commands_cog = self.bot.get_cog("Commands")
@@ -91,7 +99,7 @@ class SubcategorySelectionView(discord.ui.View):
 
     async def _add_subcategory_buttons(self):
         """Añade botones para cada subcategoría disponible."""
-        if not await db_manager.connect_db(): # Usar el método asíncrono connect_db
+        if not await db_manager.connect(): # Usar el método asíncrono connect
             print("Error: No se pudo conectar a la base de datos para obtener subcategorías.")
             self.add_item(discord.ui.Button(label="Error de DB", style=discord.ButtonStyle.red, disabled=True))
             return
@@ -127,7 +135,14 @@ class SubcategorySelectionView(discord.ui.View):
         # Deshabilitar todos los botones de la vista actual
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(view=self)
+        # No intentamos editar interaction.message aquí, ya que el siguiente paso enviará un nuevo mensaje
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.NotFound:
+                print("Advertencia: Mensaje de SubcategorySelectionView no encontrado al intentar deshabilitar botones. Continuando.")
+            except Exception as e:
+                print(f"Error al deshabilitar botones en SubcategorySelectionView: {e}")
 
         resources_cog = self.bot.get_cog("Resources")
         if resources_cog:
@@ -144,11 +159,17 @@ class SubcategorySelectionView(discord.ui.View):
         if interaction.data and interaction.data.get("custom_id", "").startswith("subcat_"):
             selected_subcategory = interaction.data["custom_id"].replace("subcat_", "")
             await interaction.response.defer() # Deferir la respuesta para dar tiempo a la DB
-
-            # Deshabilitar los botones de esta vista
+            
+            # Deshabilitar los botones de esta vista (si self.message está disponible)
             for item in self.children:
                 item.disabled = True
-            await interaction.message.edit(content=f"Has seleccionado la subcategoría: **{selected_subcategory.title()}** (Categoría: {self.category.title()}, Dificultad: {self.difficulty.title()}).", view=self)
+            if self.message:
+                try:
+                    await self.message.edit(content=f"Has seleccionado la subcategoría: **{selected_subcategory.title()}** (Categoría: {self.category.title()}, Dificultad: {self.difficulty.title()}).", view=self)
+                except discord.NotFound:
+                    print("Advertencia: Mensaje de SubcategorySelectionView no encontrado al intentar editar. Continuando.")
+                except Exception as e:
+                    print(f"Error al editar mensaje en SubcategorySelectionView: {e}")
 
             # Llamar al cog de Resources para mostrar los recursos
             resources_cog = self.bot.get_cog("Resources")
@@ -161,10 +182,16 @@ class SubcategorySelectionView(discord.ui.View):
         elif interaction.data and interaction.data.get("custom_id", "") == "view_all_in_category":
             await interaction.response.defer() # Deferir la respuesta para dar tiempo a la DB
 
-            # Deshabilitar los botones de esta vista
+            # Deshabilitar los botones de esta vista (si self.message está disponible)
             for item in self.children:
                 item.disabled = True
-            await interaction.message.edit(content=f"Mostrando todos los recursos para la categoría: **{self.category.title()}** (Dificultad: {self.difficulty.title()}).", view=self)
+            if self.message:
+                try:
+                    await self.message.edit(content=f"Mostrando todos los recursos para la categoría: **{self.category.title()}** (Dificultad: {self.difficulty.title()}).", view=self)
+                except discord.NotFound:
+                    print("Advertencia: Mensaje de SubcategorySelectionView no encontrado al intentar editar. Continuando.")
+                except Exception as e:
+                    print(f"Error al editar mensaje en SubcategorySelectionView: {e}")
 
             # Llamar al cog de Resources para mostrar todos los recursos de la categoría
             resources_cog = self.bot.get_cog("Resources")
@@ -206,7 +233,7 @@ class CategorySelectionView(discord.ui.View):
 
     async def _add_category_buttons(self):
         """Añade botones para cada categoría disponible."""
-        if not await db_manager.connect_db(): # Usar el método asíncrono connect_db
+        if not await db_manager.connect(): # Usar el método asíncrono connect
             print("Error: No se pudo conectar a la base de datos para obtener categorías.")
             self.add_item(discord.ui.Button(label="Error de DB", style=discord.ButtonStyle.red, disabled=True))
             return
@@ -238,7 +265,14 @@ class CategorySelectionView(discord.ui.View):
         # Deshabilitar todos los botones de la vista actual
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(view=self)
+        # No intentamos editar interaction.message aquí, ya que el siguiente paso enviará un nuevo mensaje
+        if self.message:
+            try:
+                await self.message.edit(view=self)
+            except discord.NotFound:
+                print("Advertencia: Mensaje de CategorySelectionView no encontrado al intentar deshabilitar botones. Continuando.")
+            except Exception as e:
+                print(f"Error al deshabilitar botones en CategorySelectionView: {e}")
 
         resources_cog = self.bot.get_cog("Resources")
         if resources_cog:
@@ -255,11 +289,17 @@ class CategorySelectionView(discord.ui.View):
         if interaction.data and interaction.data.get("custom_id", "").startswith("cat_"):
             selected_category = interaction.data["custom_id"].replace("cat_", "")
             await interaction.response.defer() # Deferir la respuesta para dar tiempo a la DB
-
-            # Deshabilitar los botones de esta vista
+            
+            # Deshabilitar los botones de esta vista (si self.message está disponible)
             for item in self.children:
                 item.disabled = True
-            await interaction.message.edit(content=f"Has seleccionado la categoría: **{selected_category.title()}** (Dificultad: {self.difficulty.title()}).", view=self)
+            if self.message:
+                try:
+                    await self.message.edit(content=f"Has seleccionado la categoría: **{selected_category.title()}** (Dificultad: {self.difficulty.title()}).", view=self)
+                except discord.NotFound:
+                    print("Advertencia: Mensaje de CategorySelectionView no encontrado al intentar editar. Continuando.")
+                except Exception as e:
+                    print(f"Error al editar mensaje en CategorySelectionView: {e}")
 
             # Llamar al cog de Resources para enviar la siguiente vista de selección de subcategoría
             resources_cog = self.bot.get_cog("Resources")
@@ -300,7 +340,7 @@ class DifficultySelectionView(discord.ui.View):
 
     async def _add_difficulty_buttons(self):
         """Añade botones para cada dificultad disponible."""
-        if not await db_manager.connect_db(): # Usar el método asíncrono connect_db
+        if not await db_manager.connect(): # Usar el método asíncrono connect
             print("Error: No se pudo conectar a la base de datos para obtener dificultades. Asegúrate de que la DB esté corriendo y las credenciales sean correctas.")
             self.add_item(discord.ui.Button(label="Error de DB", style=discord.ButtonStyle.red, disabled=True))
             return
@@ -335,10 +375,16 @@ class DifficultySelectionView(discord.ui.View):
             selected_difficulty = interaction.data["custom_id"].replace("diff_", "")
             await interaction.response.defer() # Deferir la respuesta para dar tiempo a la DB
             
-            # Deshabilitar los botones de esta vista
+            # Deshabilitar los botones de esta vista (si self.message está disponible)
             for item in self.children:
                 item.disabled = True
-            await interaction.message.edit(content=f"Has seleccionado la dificultad: **{selected_difficulty.title()}**.", view=self)
+            if self.message: # Solo intenta editar si el mensaje está asignado
+                try:
+                    await self.message.edit(content=f"Has seleccionado la dificultad: **{selected_difficulty.title()}**.", view=self)
+                except discord.NotFound:
+                    print("Advertencia: Mensaje de DifficultySelectionView no encontrado al intentar editar. Continuando.")
+                except Exception as e:
+                    print(f"Error al editar mensaje en DifficultySelectionView: {e}")
 
             # Llamar al cog de Resources para enviar la siguiente vista de selección de categoría
             resources_cog = self.bot.get_cog("Resources")
