@@ -1,30 +1,38 @@
 import os
 from dotenv import load_dotenv
-from notion_client import Client
-from notion_client.helpers import collect_paginated_api # Útil para obtener todos los resultados de una consulta paginada
 import unicodedata
+
+# Importamos el nuevo NotionService que crearemos en services/notion_service.py
+# Asumimos que NotionService manejará la conexión y las llamadas directas a la API de Notion.
+from services.notion_service import NotionService
 
 # Carga las variables de entorno desde el archivo .env
 load_dotenv()
 
 class DBManager:
     """
-    Clase para gestionar la conexión y las operaciones con la base de datos de Notion.
-    Permite insertar y recuperar recursos para el bot.
+    Clase para gestionar las operaciones de datos con las bases de datos de Notion.
+    Actúa como una capa de abstracción sobre NotionService para manejar las IDs
+    específicas de las bases de datos de recursos y ventas.
     """
     def __init__(self):
         """
-        Inicializa el DBManager cargando el token de Notion y el ID de la base de datos
-        desde las variables de entorno.
+        Inicializa el DBManager cargando los IDs de las bases de datos de Notion
+        desde las variables de entorno y el token de Notion para pasar a NotionService.
         """
         self.notion_token = os.getenv('NOTION_TOKEN')
-        self.notion_database_id = os.getenv('NOTION_DATABASE_ID')
-        self.notion = None # El cliente de Notion se inicializará en connect
+        self.notion_database_resources_id = os.getenv('NOTION_DATABASE_RESOURCES_ID')
+        self.notion_database_sales_id = os.getenv('NOTION_DATABASE_SALES_ID')
+        self.notion_service = None # El cliente de NotionService se inicializará en connect
 
         # Validación básica de las variables de entorno de Notion
-        if not self.notion_token or not self.notion_database_id:
-            print("¡ADVERTENCIA! Las variables de entorno de Notion (NOTION_TOKEN, NOTION_DATABASE_ID) no están completamente configuradas.")
-            print("Asegúrate de que NOTION_TOKEN y NOTION_DATABASE_ID estén definidos en tu archivo .env.")
+        if not self.notion_token:
+            print("¡ADVERTENCIA! La variable de entorno 'NOTION_TOKEN' no está configurada.")
+        if not self.notion_database_resources_id:
+            print("¡ADVERTENCIA! 'NOTION_DATABASE_RESOURCES_ID' no está definido en tu archivo .env.")
+        if not self.notion_database_sales_id:
+            print("¡ADVERTENCIA! 'NOTION_DATABASE_SALES_ID' no está definido en tu archivo .env.")
+
 
     def _normalize_string(self, text: str) -> str:
         """
@@ -39,93 +47,68 @@ class DBManager:
 
     def connect(self):
         """
-        Inicializa el cliente de Notion utilizando el token de integración.
-        Retorna el objeto de cliente de Notion si es exitoso, None en caso de error.
+        Inicializa el cliente de NotionService.
+        Retorna el objeto de cliente de NotionService si es exitoso, None en caso de error.
         """
-        if self.notion is None:
+        if self.notion_service is None:
             try:
-                self.notion = Client(auth=self.notion_token)
-                print("Cliente de Notion inicializado exitosamente.")
+                # Pasamos el token al NotionService
+                self.notion_service = NotionService(self.notion_token)
+                # El NotionService se encargará de inicializar el cliente de Notion
+                if self.notion_service.connect():
+                    print("Cliente de NotionService inicializado exitosamente.")
+                else:
+                    self.notion_service = None # Si la conexión falla en NotionService, lo reseteamos
             except Exception as e:
-                print(f"Error al inicializar el cliente de Notion: {e}")
-                self.notion = None # Asegurarse de que el cliente sea None si falla
-        return self.notion
+                print(f"Error al inicializar el cliente de NotionService: {e}")
+                self.notion_service = None # Asegurarse de que el cliente sea None si falla
+        return self.notion_service
 
     def close(self):
         """
         No se necesita una acción explícita de cierre para el cliente de Notion,
-        ya que gestiona las conexiones internamente.
+        ya que gestiona las conexiones internamente. Desreferenciamos el servicio.
         """
-        self.notion = None
-        print("Cliente de Notion 'cerrado' (desreferenciado).")
+        if self.notion_service:
+            self.notion_service.close() # Llama al método close del servicio si existe
+        self.notion_service = None
+        print("Cliente de NotionService 'cerrado' (desreferenciado).")
 
-    def insert_resource(self, resource_name: str, link: str, category: str, difficulty: str, subcategory: str = None):
+    async def insert_resource(self, resource_name: str, link: str, category: str, difficulty: str, subcategory: str = None):
         """
-        Inserta un nuevo recurso en la base de datos de Notion.
-        Los campos de texto se normalizan antes de la inserción para asegurar
-        que estén en minúsculas y sin acentos, facilitando búsquedas consistentes.
-
-        Args:
-            resource_name (str): Nombre descriptivo del recurso.
-            link (str): Enlace (URL) del recurso.
-            category (str): Categoría principal del recurso.
-            difficulty (str): Dificultad del recurso ('básico' o 'avanzado').
-            subcategory (str, optional): Subcategoría o problema específico. Por defecto None.
-
-        Returns:
-            bool: True si la inserción fue exitosa, False en caso contrario.
+        Inserta un nuevo recurso en la base de datos de recursos de Notion.
+        Delega la operación al NotionService.
         """
-        if not self.notion:
+        if not self.notion_service:
             self.connect()
-        if not self.notion:
+        if not self.notion_service:
             return False
 
-        try:
-            # Normalizar los datos antes de la inserción
-            normalized_resource_name = self._normalize_string(resource_name)
-            normalized_category = self._normalize_string(category)
-            normalized_subcategory = self._normalize_string(subcategory)
-            normalized_difficulty = self._normalize_string(difficulty)
+        # Normalizar los datos antes de la inserción
+        normalized_resource_name = self._normalize_string(resource_name)
+        normalized_category = self._normalize_string(category)
+        normalized_subcategory = self._normalize_string(subcategory)
+        normalized_difficulty = self._normalize_string(difficulty)
 
-            # Construir el diccionario de propiedades para la página de Notion
-            properties = {
+        return await self.notion_service.insert_page(
+            database_id=self.notion_database_resources_id,
+            properties={
                 "resource_name": {"title": [{"text": {"content": normalized_resource_name}}]},
                 "link": {"url": link},
                 "category": {"select": {"name": normalized_category}},
-                "difficulty": {"select": {"name": normalized_difficulty}}
+                "difficulty": {"select": {"name": normalized_difficulty}},
+                "subcategory": {"select": {"name": normalized_subcategory}} if normalized_subcategory else None
             }
-            if normalized_subcategory:
-                # Asumimos que 'Subcategory' es una propiedad de tipo 'Select'
-                properties["subcategory"] = {"select": {"name": normalized_subcategory}}
+        )
 
-            self.notion.pages.create(
-                parent={"database_id": self.notion_database_id},
-                properties=properties
-            )
-            print(f"Recurso '{resource_name}' insertado en Notion.")
-            return True
-        except Exception as e:
-            print(f"Error al insertar el recurso '{resource_name}' en Notion: {e}")
-            return False
-
-    def get_resources(self, category: str = None, subcategory: str = None, difficulty: str = None):
+    async def get_resources(self, category: str = None, subcategory: str = None, difficulty: str = None):
         """
-        Recupera recursos de la base de datos de Notion basándose en filtros opcionales.
-        Los parámetros de búsqueda se normalizan (minúsculas y sin acentos)
-        para coincidir con el formato de los datos almacenados en la base de datos.
-
-        Args:
-            category (str, optional): Filtra por categoría. Por defecto None (sin filtro).
-            subcategory (str, optional): Filtra por subcategoría. Por defecto None (sin filtro).
-            difficulty (str, optional): Filtra por dificultad. Por defecto None (sin filtro).
-
-        Returns:
-            list: Una lista de diccionarios, donde cada diccionario representa un recurso.
-                  Retorna una lista vacía si no se encuentran recursos o si hay un error.
+        Recupera recursos de la base de datos de recursos de Notion basándose en filtros opcionales.
+        Delega la operación al NotionService.
         """
-        if not self.notion:
+        if not self.notion_service:
             self.connect()
-        if not self.notion:
+        if not self.notion_service:
             return []
 
         filter_conditions = []
@@ -158,61 +141,53 @@ class DBManager:
             else:
                 query_filter["and"] = filter_conditions
 
-        resources = []
-        try:
-            # Usar collect_paginated_api para obtener todos los resultados si hay muchos
-            pages = collect_paginated_api(
-                self.notion.databases.query,
-                database_id=self.notion_database_id,
-                filter=query_filter
-            )
+        pages = await self.notion_service.query_database(
+            database_id=self.notion_database_resources_id,
+            filter=query_filter
+        )
 
-            for page in pages:
-                props = page["properties"]
-                resource = {
-                    "resource_name": props.get("resource_name", {}).get("title", [{}])[0].get("plain_text") if props.get("resource_name") else None,
-                    "link": props.get("link", {}).get("url"),
-                    "category": props.get("category", {}).get("select", {}).get("name"),
-                    "subcategory": props.get("subcategory", {}).get("select", {}).get("name"),
-                    "difficulty": props.get("difficulty", {}).get("select", {}).get("name"),
-                }
-                resources.append(resource)
-            print(f"Recursos encontrados en Notion: {len(resources)}")
-        except Exception as e:
-            print(f"Error al obtener recursos de Notion: {e}")
+        resources = []
+        for page in pages:
+            props = page["properties"]
+            resource = {
+                "resource_name": props.get("resource_name", {}).get("title", [{}])[0].get("plain_text") if props.get("resource_name") else None,
+                "link": props.get("link", {}).get("url"),
+                "category": props.get("category", {}).get("select", {}).get("name"),
+                "subcategory": props.get("subcategory", {}).get("select", {}).get("name"),
+                "difficulty": props.get("difficulty", {}).get("select", {}).get("name"),
+            }
+            resources.append(resource)
         return resources
 
-    def get_distinct_difficulties(self):
+    async def get_distinct_difficulties(self):
         """
-        Obtiene una lista de todas las dificultades distintas disponibles en la base de datos de Notion.
+        Obtiene una lista de todas las dificultades distintas disponibles en la base de datos de recursos.
+        Delega la operación al NotionService.
         """
-        if not self.notion:
+        if not self.notion_service:
             self.connect()
-        if not self.notion:
+        if not self.notion_service:
             return []
 
         difficulties = set()
-        try:
-            pages = collect_paginated_api(
-                self.notion.databases.query,
-                database_id=self.notion_database_id
-            )
-            for page in pages:
-                difficulty = page["properties"].get("difficulty", {}).get("select", {}).get("name")
-                if difficulty:
-                    difficulties.add(difficulty)
-        except Exception as e:
-            print(f"Error al obtener dificultades distintas de Notion: {e}")
+        pages = await self.notion_service.query_database(
+            database_id=self.notion_database_resources_id
+        )
+        for page in pages:
+            difficulty = page["properties"].get("difficulty", {}).get("select", {}).get("name")
+            if difficulty:
+                difficulties.add(difficulty)
         return sorted(list(difficulties))
 
-    def get_distinct_categories(self, difficulty: str = None):
+    async def get_distinct_categories(self, difficulty: str = None):
         """
-        Obtiene una lista de todas las categorías distintas disponibles,
+        Obtiene una lista de todas las categorías distintas disponibles en la base de datos de recursos,
         opcionalmente filtradas por dificultad.
+        Delega la operación al NotionService.
         """
-        if not self.notion:
+        if not self.notion_service:
             self.connect()
-        if not self.notion:
+        if not self.notion_service:
             return []
 
         categories = set()
@@ -227,28 +202,25 @@ class DBManager:
         if filter_conditions:
             query_filter["and"] = filter_conditions
 
-        try:
-            pages = collect_paginated_api(
-                self.notion.databases.query,
-                database_id=self.notion_database_id,
-                filter=query_filter
-            )
-            for page in pages:
-                category = page["properties"].get("category", {}).get("select", {}).get("name")
-                if category:
-                    categories.add(category)
-        except Exception as e:
-            print(f"Error al obtener categorías distintas de Notion: {e}")
+        pages = await self.notion_service.query_database(
+            database_id=self.notion_database_resources_id,
+            filter=query_filter
+        )
+        for page in pages:
+            category = page["properties"].get("category", {}).get("select", {}).get("name")
+            if category:
+                categories.add(category)
         return sorted(list(categories))
 
-    def get_distinct_subcategories(self, difficulty: str = None, category: str = None):
+    async def get_distinct_subcategories(self, difficulty: str = None, category: str = None):
         """
-        Obtiene una lista de todas las subcategorías distintas disponibles,
+        Obtiene una lista de todas las subcategorías distintas disponibles en la base de datos de recursos,
         opcionalmente filtradas por dificultad y/o categoría.
+        Delega la operación al NotionService.
         """
-        if not self.notion:
+        if not self.notion_service:
             self.connect()
-        if not self.notion:
+        if not self.notion_service:
             return []
 
         subcategories = set()
@@ -268,76 +240,170 @@ class DBManager:
         if filter_conditions:
             query_filter["and"] = filter_conditions
 
-        try:
-            pages = collect_paginated_api(
-                self.notion.databases.query,
-                database_id=self.notion_database_id,
-                filter=query_filter
-            )
-            for page in pages:
-                subcategory = page["properties"].get("subcategory", {}).get("select", {}).get("name")
-                if subcategory:
-                    subcategories.add(subcategory)
-        except Exception as e:
-            print(f"Error al obtener subcategorías distintas de Notion: {e}")
+        pages = await self.notion_service.query_database(
+            database_id=self.notion_database_resources_id,
+            filter=query_filter
+        )
+        for page in pages:
+            subcategory = page["properties"].get("subcategory", {}).get("select", {}).get("name")
+            if subcategory:
+                subcategories.add(subcategory)
         return sorted(list(subcategories))
+
+    # --- Nuevas funciones para la base de datos de Ventas ---
+    async def insert_sales_report(self, date: str, product: str, sales_amount: float, region: str, notes: str = None):
+        """
+        Inserta un nuevo reporte de ventas en la base de datos de ventas de Notion.
+        Delega la operación al NotionService.
+        """
+        if not self.notion_service:
+            self.connect()
+        if not self.notion_service:
+            return False
+
+        # Normalizar los datos antes de la inserción si es necesario (ej. producto, región)
+        normalized_product = self._normalize_string(product)
+        normalized_region = self._normalize_string(region)
+
+        properties = {
+            "Date": {"date": {"start": date}},
+            "Product": {"select": {"name": normalized_product}},
+            "Sales Amount": {"number": sales_amount},
+            "Region": {"select": {"name": normalized_region}}
+        }
+        if notes:
+            properties["Notes"] = {"rich_text": [{"text": {"content": notes}}]}
+
+        return await self.notion_service.insert_page(
+            database_id=self.notion_database_sales_id,
+            properties=properties
+        )
+
+    async def get_sales_data(self, start_date: str = None, end_date: str = None, product: str = None, region: str = None):
+        """
+        Recupera datos de ventas de la base de datos de ventas de Notion basándose en filtros opcionales.
+        Delega la operación al NotionService.
+        """
+        if not self.notion_service:
+            self.connect()
+        if not self.notion_service:
+            return []
+
+        filter_conditions = []
+
+        if start_date and end_date:
+            filter_conditions.append({
+                "property": "Date",
+                "date": {"on_or_after": start_date, "on_or_before": end_date}
+            })
+        elif start_date:
+            filter_conditions.append({
+                "property": "Date",
+                "date": {"on_or_after": start_date}
+            })
+        elif end_date:
+            filter_conditions.append({
+                "property": "Date",
+                "date": {"on_or_before": end_date}
+            })
+
+        if product:
+            filter_conditions.append({
+                "property": "Product",
+                "select": {"equals": self._normalize_string(product)}
+            })
+        if region:
+            filter_conditions.append({
+                "property": "Region",
+                "select": {"equals": self._normalize_string(region)}
+            })
+
+        query_filter = {}
+        if filter_conditions:
+            if len(filter_conditions) == 1:
+                query_filter = filter_conditions[0]
+            else:
+                query_filter["and"] = filter_conditions
+
+        pages = await self.notion_service.query_database(
+            database_id=self.notion_database_sales_id,
+            filter=query_filter
+        )
+
+        sales_data = []
+        for page in pages:
+            props = page["properties"]
+            data = {
+                "date": props.get("Date", {}).get("date", {}).get("start"),
+                "product": props.get("Product", {}).get("select", {}).get("name"),
+                "sales_amount": props.get("Sales Amount", {}).get("number"),
+                "region": props.get("Region", {}).get("select", {}).get("name"),
+                "notes": props.get("Notes", {}).get("rich_text", [{}])[0].get("plain_text") if props.get("Notes") else None,
+            }
+            sales_data.append(data)
+        return sales_data
 
 
 # Ejemplo de uso (solo para pruebas, no se ejecutará directamente en el bot)
 if __name__ == "__main__":
     # Asegúrate de tener estas variables en tu .env para que el ejemplo funcione
     # NOTION_TOKEN="secret_YOUR_NOTION_INTEGRATION_TOKEN"
-    # NOTION_DATABASE_ID="YOUR_NOTION_DATABASE_ID"
+    # NOTION_DATABASE_RESOURCES_ID="YOUR_RESOURCES_DATABASE_ID"
+    # NOTION_DATABASE_SALES_ID="YOUR_SALES_DATABASE_ID"
 
-    db_manager = DBManager()
+    async def test_db_manager():
+        db_manager = DBManager()
 
-    # Prueba de conexión
-    if db_manager.connect():
-        print("Conexión de prueba a Notion exitosa.")
+        # Prueba de conexión
+        if db_manager.connect():
+            print("Conexión de prueba a Notion exitosa.")
 
-        # Prueba de inserción de recurso
-        print("\n--- Probando inserción de recurso en Notion ---")
-        success = db_manager.insert_resource(
-            resource_name="Guía de Productividad Avanzada",
-            link="https://ejemplo.com/guia_productividad_notion",
-            category="Autogestión",
-            subcategory="Gestión del Tiempo",
-            difficulty="Avanzado"
-        )
-        if success:
-            print("Inserción de recurso de prueba exitosa.")
+            # --- Pruebas de Recursos ---
+            print("\n--- Probando inserción de recurso en Notion ---")
+            success = await db_manager.insert_resource(
+                resource_name="Guía de Productividad Avanzada",
+                link="https://ejemplo.com/guia_productividad_notion",
+                category="Autogestión",
+                subcategory="Gestión del Tiempo",
+                difficulty="Avanzado"
+            )
+            if success:
+                print("Inserción de recurso de prueba exitosa.")
+            else:
+                print("Fallo en la inserción del recurso de prueba.")
+
+            print("\n--- Probando recuperación de recursos (categoría 'autogestion') ---")
+            autogestion_resources = await db_manager.get_resources(category="autogestion")
+            for res in autogestion_resources:
+                print(res)
+
+            print("\n--- Probando obtención de dificultades distintas ---")
+            difficulties = await db_manager.get_distinct_difficulties()
+            print(f"Dificultades distintas: {difficulties}")
+
+            # --- Pruebas de Ventas ---
+            print("\n--- Probando inserción de reporte de ventas en Notion ---")
+            sales_success = await db_manager.insert_sales_report(
+                date="2025-07-25",
+                product="Servicio Premium",
+                sales_amount=150.75,
+                region="Europa",
+                notes="Cliente muy interesado en futuras actualizaciones."
+            )
+            if sales_success:
+                print("Inserción de reporte de ventas de prueba exitosa.")
+            else:
+                print("Fallo en la inserción del reporte de ventas de prueba.")
+
+            print("\n--- Probando recuperación de datos de ventas (producto 'Servicio Premium') ---")
+            sales_data = await db_manager.get_sales_data(product="Servicio Premium")
+            for data in sales_data:
+                print(data)
+
         else:
-            print("Fallo en la inserción del recurso de prueba.")
+            print("No se pudo conectar a la base de datos de Notion para las pruebas.")
 
-        # Prueba de recuperación de recursos
-        print("\n--- Probando recuperación de recursos (categoría 'autogestion') ---")
-        autogestion_resources = db_manager.get_resources(category="autogestion")
-        for res in autogestion_resources:
-            print(res)
+        db_manager.close() # Asegurarse de "cerrar" el cliente al finalizar
 
-        print("\n--- Probando recuperación de recursos (dificultad 'basico') ---")
-        basic_resources = db_manager.get_resources(difficulty="basico")
-        for res in basic_resources:
-            print(res)
-
-        print("\n--- Probando recuperación de recursos (categoría 'autorregulacion', subcategoría 'ansiedad') ---")
-        ansiedad_resources = db_manager.get_resources(category="autorregulacion", subcategory="ansiedad")
-        for res in ansiedad_resources:
-            print(res)
-
-        print("\n--- Probando obtención de dificultades distintas ---")
-        difficulties = db_manager.get_distinct_difficulties()
-        print(f"Dificultades distintas: {difficulties}")
-
-        print("\n--- Probando obtención de categorías distintas (filtrado por 'avanzado') ---")
-        categories_advanced = db_manager.get_distinct_categories(difficulty="avanzado")
-        print(f"Categorías avanzadas: {categories_advanced}")
-
-        print("\n--- Probando obtención de subcategorías distintas (filtrado por 'autogestion' y 'basico') ---")
-        subcategories_autogestion_basico = db_manager.get_distinct_subcategories(difficulty="basico", category="autogestion")
-        print(f"Subcategorías de autogestión (básico): {subcategories_autogestion_basico}")
-
-    else:
-        print("No se pudo conectar a la base de datos de Notion para las pruebas.")
-
-    db_manager.close() # Asegurarse de "cerrar" el cliente al finalizar
+    import asyncio
+    asyncio.run(test_db_manager())

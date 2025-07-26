@@ -6,16 +6,25 @@ import discord
 from discord.ext import commands
 import asyncio
 
-# Importa las configuraciones y el gestor de la base de datos
+# Importa las configuraciones
 import config
-from database.db_manager import DBManager
 
-# Importa todos los cogs (módulos) que hemos creado
-from cogs.events import Events
-from cogs.commands import Commands
-from cogs.ticket_management import TicketManagement
+# Importa los cogs (módulos) según la nueva estructura
+# Cogs comunes
+from cogs.common.events import Events
+from cogs.common.commands import Commands
+
+# Cogs específicos de Fulfillment
+from cogs.fulfillment.resources import Resources
+
+# Cogs específicos de Sales
+# from cogs.sales.reports import Reports # Asume que crearás este cog
+
+# Cogs específicos de Operations
+# from cogs.operations.testing import Testing # Asume que crearás este cog
+
+# Cog de interacción humana (se mantiene en el nivel superior de cogs)
 from cogs.human_interaction import HumanInteraction
-from cogs.resources import Resources
 
 # --- CONFIGURACIÓN DE INTENTS (PERMISOS) ---
 # Los intents definen qué eventos de Discord tu bot puede recibir.
@@ -33,16 +42,19 @@ bot = commands.Bot(command_prefix='&', intents=intents)
 # --- FUNCIÓN PARA CARGAR LOS COGS ---
 async def load_cogs():
     """
-    Carga todos los cogs (extensiones) del bot.
+    Carga todos los cogs (extensiones) del bot según la nueva estructura modular.
     Cada cog encapsula un conjunto de funcionalidades relacionadas.
     """
     print("Cargando cogs...")
+    # Lista de cogs a cargar. Asegúrate de que los nombres de los módulos coincidan con la estructura de archivos.
     cogs_to_load = [
-        "cogs.events",
-        "cogs.commands",
-        "cogs.ticket_management",
+        "cogs.common.events",
+        "cogs.common.commands",
+        "cogs.fulfillment.resources",
         "cogs.human_interaction",
-        "cogs.resources"
+        # Añade los cogs de Sales y Operations una vez que los hayas creado
+        # "cogs.sales.reports",
+        # "cogs.operations.testing",
     ]
     for cog in cogs_to_load:
         try:
@@ -58,13 +70,8 @@ async def load_cogs():
             traceback.print_exc() # Imprime el traceback completo para depuración
     print("Carga de cogs completada.")
 
-# --- EVENTO on_ready (Manejado en cogs/events.py) ---
-# Este evento ya está manejado en el cog 'Events'.
-# No es necesario definirlo aquí en el archivo principal si ya está en un cog.
-
 # --- EVENTO on_message ---
 # Este evento es crucial para que el bot procese los comandos y los listeners de mensajes en los cogs.
-# Si tienes un on_message en el archivo principal, debes asegurarte de llamar a process_commands.
 @bot.event
 async def on_message(message):
     """
@@ -105,14 +112,11 @@ async def main():
 # Ejecutar la función principal
 if __name__ == "__main__":
     # Cargar los cogs antes de que el bot se conecte
-    # Esto se puede hacer en un bloque try-except si quieres manejar errores de carga de cogs
-    # antes de intentar iniciar el bot.
-    asyncio.run(load_cogs()) # Ejecuta load_cogs de forma síncrona antes de bot.run
+    asyncio.run(load_cogs())
 
     # Iniciar el bot con el token cargado desde config.py
     if config.TOKEN:
         try:
-            # Usa bot.run() para una gestión más robusta del ciclo de vida del bot
             bot.run(config.TOKEN)
         except discord.LoginFailure:
             print("❌ Error de inicio de sesión: Token inválido. Por favor, verifica tu TOKEN en el archivo .env")

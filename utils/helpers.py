@@ -1,4 +1,5 @@
 # Archivo: utils/helpers.py
+# Contiene funciones auxiliares para el bot.
 
 def get_help_message(bot_commands: list) -> str:
     """
@@ -12,9 +13,13 @@ def get_help_message(bot_commands: list) -> str:
     """
     help_message = "**🤖 Comandos disponibles de Neurocogniciones Bot:**\n\n"
 
-    for command in bot_commands:
+    # Ordenar los comandos alfabéticamente por su nombre para una visualización consistente
+    sorted_commands = sorted(bot_commands, key=lambda cmd: cmd.name)
+
+    for command in sorted_commands:
         # Excluir el comando 'help' predeterminado de Discord.py si existe
-        if command.name == 'help':
+        # y cualquier comando que esté marcado como oculto.
+        if command.name == 'help' or command.hidden:
             continue
 
         help_message += f"`&{command.name}`"
@@ -26,9 +31,10 @@ def get_help_message(bot_commands: list) -> str:
         # Añadir la descripción del comando
         help_message += f": {command.help}\n"
 
-    help_message += "\n**Ejemplos de uso:**\n"
-    # Se eliminó la referencia al comando '&reporte'
-    help_message += "`&ayuda` - Muestra este mensaje de ayuda."
+    # Si no hay comandos listados después de filtrar, proporcionar un mensaje alternativo
+    if not any(cmd.name != 'help' and not cmd.hidden for cmd in bot_commands):
+        help_message += "No hay comandos disponibles en este momento."
+
     return help_message
 
 # Puedes añadir más funciones auxiliares aquí a medida que las necesites.

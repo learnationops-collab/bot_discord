@@ -1,16 +1,18 @@
 # Archivo: cogs/human_interaction.py
+# Este cog maneja el flujo de interacción para "Hablar con un Humano",
+# recopilando información del usuario sin crear nuevos canales.
 
 import discord
 from discord.ext import commands
 import asyncio
 
 import config # Importa la configuración para acceder a user_conversations y IDs
-from views.main_menu import CloseTicketView # Importa la vista para cerrar el ticket
+# from views.main_menu import CloseTicketView # Ya no es necesaria ya que no se crean tickets
 
 class HumanInteraction(commands.Cog):
     """
     Cog que maneja el flujo de interacción para "Hablar con un Humano",
-    incluyendo preguntas y creación de canales de atención al cliente.
+    recopilando información y notificando al equipo correspondiente.
     """
     def __init__(self, bot):
         self.bot = bot
@@ -38,63 +40,51 @@ class HumanInteraction(commands.Cog):
                 conversation_state['state'] = 2
                 await message.channel.send("**2. ¿Qué soluciones has intentado hasta ahora?**")
             elif current_question_number == 2:
-                # Todas las preguntas respondidas (se eliminó la pregunta 3)
+                # Todas las preguntas respondidas
                 config.user_conversations[user_id]['state'] = 0 # Reiniciar estado
                 
                 guild = message.guild
 
-                # Validar que el ID del rol de atención al cliente esté configurado
-                if config.ATENCION_AL_CLIENTE_ROLE_ID is None:
-                    await message.channel.send("❌ Error de configuración: El ID del rol de Atención al Cliente no está definido en .env o no es válido. Contacta a un administrador.")
+                # Validar que el ID del rol de CSMS esté configurado
+                if config.ROLE_IDS['CSMS'] is None:
+                    await message.channel.send("❌ Error de configuración: El ID del rol de CSMS no está definido en .env o no es válido. Contacta a un administrador.")
                     return
-                human_contact_role = guild.get_role(config.ATENCION_AL_CLIENTE_ROLE_ID)
-                if not human_contact_role:
-                    await message.channel.send("❌ Error: No se encontró el rol de Atención al Cliente con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.")
+                
+                csms_role = guild.get_role(config.ROLE_IDS['CSMS'])
+                if not csms_role:
+                    await message.channel.send("❌ Error: No se encontró el rol de CSMS con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.")
                     return
 
-                # Definir permisos para el nuevo canal de atención al cliente
-                overwrites = {
-                    guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                    message.author: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-                    self.bot.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-                    human_contact_role: discord.PermissionOverwrite(read_messages=True, send_messages=True)
-                }
+                # Obtener el canal de destino para las notificaciones (ej. BOT_TEST_CHANNEL_ID)
+                if config.CHANNEL_IDS['BOT_TEST'] is None:
+                    await message.channel.send("❌ Error de configuración: El ID del canal de prueba del bot (BOT_TEST_CHANNEL_ID) no está definido en .env o no es válido. Contacta a un administrador.")
+                    return
+
+                notification_channel = self.bot.get_channel(config.CHANNEL_IDS['BOT_TEST'])
+                if not notification_channel:
+                    await message.channel.send("❌ Error: No se encontró el canal de notificaciones con el ID proporcionado (BOT_TEST_CHANNEL_ID). Por favor, verifica el archivo .env o contacta a un administrador.")
+                    return
 
                 try:
-                    # Validar que el ID de la categoría de atención al cliente esté configurado
-                    if config.ATENCION_AL_CLIENTE_CATEGORY_ID is None:
-                        await message.channel.send("❌ Error de configuración: El ID de la categoría de Atención al Cliente no está definido en .env o no es válido. Contacta a un administrador.")
-                        return
-                    category = guild.get_channel(config.ATENCION_AL_CLIENTE_CATEGORY_ID)
-                    if not category:
-                        await message.channel.send("❌ Error: No se encontró la categoría de Atención al Cliente con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.")
-                        return
-
-                    channel_name = f"atencion-cliente-{message.author.name.lower().replace(' ', '-')}-{message.author.discriminator}"
-                    new_human_channel = await category.create_text_channel(channel_name, overwrites=overwrites)
-                    
-                    config.user_conversations[user_id]['channel_id'] = new_human_channel.id # Guardar el ID del canal creado
-
                     await message.channel.send(
-                        f"¡Gracias por tus respuestas, {message.author.mention}! He creado un canal privado para que nuestro equipo de atención al cliente te asista: {new_human_channel.mention}\n"
-                        "Por favor, dirígete a ese canal. Un miembro del equipo revisará la información y se pondrá en contacto contigo pronto.\n\n"
-                        "Para salir de este canal y cerrarlo cuando tu problema esté resuelto, usa el botón 'Cerrar Ticket' o el comando `&cerrar_ticket`."
+                        f"¡Gracias por tus respuestas, {message.author.mention}! "
+                        "Hemos enviado tu solicitud a nuestro equipo. Se pondrán en contacto contigo pronto."
                     )
 
-                    # Publicar las respuestas en el nuevo canal de atención al cliente
-                    answers_message = "**ℹ️ Información del Cliente para Atención al Cliente:**\n"
+                    # Publicar las respuestas en el canal de notificaciones
+                    answers_message = f"**ℹ️ Solicitud de Contacto Humano de {message.author.mention} ({message.author.name}):**\n"
                     for ans in conversation_state['answers']:
                         answers_message += f"- {ans}\n"
-                    answers_message += f"\nCliente: {message.author.mention}"
-                    
-                    await new_human_channel.send(answers_message, view=CloseTicketView(new_human_channel))
-                    await new_human_channel.send(f"{human_contact_role.mention}, un nuevo cliente necesita asistencia. Por favor, revisen el canal.")
+                    answers_message += f"\nCanal de origen: {message.channel.mention}" # Añadir el canal de origen
+
+                    await notification_channel.send(answers_message)
+                    await notification_channel.send(f"{csms_role.mention}, un nuevo cliente necesita asistencia. Por favor, revisen la información en el mensaje anterior.")
 
                 except discord.Forbidden:
-                    await message.channel.send("❌ No tengo los permisos necesarios para crear canales de atención al cliente. Por favor, asegúrate de que el bot tenga el permiso 'Gestionar Canales'.")
+                    await message.channel.send("❌ No tengo los permisos necesarios para enviar mensajes en el canal de notificaciones. Por favor, asegúrate de que el bot tenga los permisos adecuados.")
                 except Exception as e:
-                    await message.channel.send(f"❌ Ocurrió un error al crear el canal de atención al cliente: `{e}`")
-                    print(f"Error al crear canal de atención al cliente: {e}")
+                    await message.channel.send(f"❌ Ocurrió un error al procesar tu solicitud: `{e}`")
+                    print(f"Error al enviar notificación de contacto humano: {e}")
             
             # No procesar el mensaje como un comando si está en un flujo de conversación
             return
