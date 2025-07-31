@@ -7,7 +7,7 @@ import config
 
 class TicketManagement(commands.Cog):
     """
-    Cog que maneja la creación de canales privados para reportes de bugs.
+    Cog que maneja la creación y cierre de canales privados para reportes de bugs.
     """
     def __init__(self, bot):
         self.bot = bot
@@ -55,6 +55,18 @@ class TicketManagement(commands.Cog):
         except Exception as e:
             print(f"Error al crear el canal de bug: {e}")
             return None, f"Error inesperado al crear el canal de bug: `{e}`"
+
+    async def close_bug_channel(self, channel: discord.TextChannel):
+        """
+        Cierra un canal de bug.
+        """
+        try:
+            await channel.delete()
+        except discord.Forbidden:
+            print(f"Error: No tengo permisos para eliminar el canal {channel.name}.")
+        except Exception as e:
+            print(f"Error inesperado al intentar cerrar el canal: {e}")
+
 
 async def setup(bot):
     """

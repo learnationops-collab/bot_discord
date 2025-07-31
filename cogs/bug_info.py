@@ -23,7 +23,7 @@ class BugInfo(commands.Cog):
         )
 
         questions = [
-            "1. **¿En qué plataforma ocurrió el problema?** (Por ejemplo: Windows, macOS, navegador web, aplicación móvil)",
+            "1. **¿En qué plataforma ocurrió el problema?** (Por ejemplo: Manychat, Kommo, Zapier, Google Sheets, etc.)",
             "2. **Describe el problema en detalle.** (Qué pasó, qué estabas haciendo, etc.)",
             "3. **¿Qué soluciones has intentado para solucionarlo?**"
         ]
@@ -69,6 +69,60 @@ class BugInfo(commands.Cog):
             await channel.send("✅ ¡Reporte enviado! El equipo de Operaciones ha sido notificado en el canal oficial de bugs y se comunicará contigo por este medio.")
         else:
             await channel.send(f"✅ ¡Reporte enviado! No se pudo enviar al canal oficial de bugs (ID no encontrado), pero el equipo de <@&{config.OPERECIONES_ROLES_ID}> ha sido notificado.")
+            print(f"Advertencia: No se encontró el canal de bugs con el ID: {config.BUGS_CHANNEL_ID}")
+
+    async def start_bug_solved_flow(self, channel: discord.TextChannel, member: discord.Member):
+        """
+        Inicia un flujo de preguntas para saber cómo se resolvió el problema.
+        """
+        await channel.send(f"¡Hola, {member.mention}! Responde a las siguientes preguntas para documentar la solución del bug. El canal se cerrará una vez finalizado el proceso.")
+        
+        questions = [
+            "1. **¿Qué soluciones se implementaron?**",
+            "2. **¿Cuál fue la solución final?**",
+            "3. **¿Hay alguna información adicional a tener en cuenta?**"
+        ]
+
+        answers = {}
+
+        def check_message(message):
+            return message.author == member and message.channel == channel
+
+        for i, question in enumerate(questions):
+            await channel.send(question)
+            try:
+                response = await self.bot.wait_for('message', check=check_message, timeout=300.0)
+                answers[f"answer_{i+1}"] = response.content
+            except asyncio.TimeoutError:
+                await channel.send("❌ Se ha agotado el tiempo. El canal no se cerrará. Puedes usar `&bug_resuelto` nuevamente si lo deseas.")
+                return
+
+        # Compilar el reporte de la solución
+        embed = discord.Embed(
+            title="✅ Bug Resuelto",
+            description=f"Solución documentada por {member.mention} en el canal `{channel.name}`.",
+            color=0x00ff00  # Verde
+        )
+        if member.avatar:
+            embed.set_thumbnail(url=member.avatar.url)
+        
+        embed.add_field(name="Soluciones Implementadas", value=answers.get("answer_1", "N/A"), inline=False)
+        embed.add_field(name="Solución Final", value=answers.get("answer_2", "N/A"), inline=False)
+        embed.add_field(name="Información a tener en cuenta", value=answers.get("answer_3", "N/A"), inline=False)
+        embed.set_footer(text=f"ID del Usuario: {member.id}")
+
+        # Enviar el reporte al canal de bugs oficial y luego cerrar el canal privado
+        bug_channel = self.bot.get_channel(config.BUGS_CHANNEL_ID)
+        if bug_channel:
+            await bug_channel.send(f"Reporte de solución para el equipo de <@&{config.OPERECIONES_ROLES_ID}>:", embed=embed)
+            await channel.send("✅ ¡Reporte de solución enviado! El equipo de Operaciones ha sido notificado y este canal se cerrará en 5 segundos.")
+            await asyncio.sleep(5)
+            # Intentar eliminar el canal
+            ticket_cog = self.bot.get_cog('TicketManagement')
+            if ticket_cog:
+                await ticket_cog.close_bug_channel(channel)
+        else:
+            await channel.send("❌ No se pudo enviar el reporte de solución (ID de canal de bugs no encontrado). El canal no se cerrará automáticamente.")
             print(f"Advertencia: No se encontró el canal de bugs con el ID: {config.BUGS_CHANNEL_ID}")
 
 async def setup(bot):

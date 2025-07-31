@@ -103,12 +103,29 @@ class Commands(commands.Cog):
         if channel:
             # Si el canal se creó exitosamente, enviamos la confirmación al canal original
             # y llamamos al flujo de preguntas en el nuevo cog.
-            await ctx.send(f"✅ ¡Gracias por tu reporte! {message}")
+            await ctx.send(f"✅ Ingresa al {message} y reporta el problema respondiendo las preguntas.")
             await bug_info_cog.start_bug_report_flow(channel, ctx.author)
         else:
             # Si hubo un error, enviamos el mensaje de error al canal original
             await ctx.send(f"❌ No se pudo crear el canal de bug. {message}")
 
+    @commands.command(name='bug_resuelto', help='Cierra el canal de bug y envía un reporte de la solución.')
+    async def bug_resuelto(self, ctx):
+        """
+        Comando para cerrar un canal de bug y enviar un reporte de la solución.
+        """
+        # Verificar si el comando se ejecuta en un canal de bugs.
+        if not ctx.channel.name.startswith('bug-'):
+            await ctx.send("❌ Este comando solo puede ser usado en un canal de bug. Si quieres crear uno, usa `&bug`.")
+            return
+
+        bug_info_cog = self.bot.get_cog('BugInfo')
+        if not bug_info_cog:
+            await ctx.send("❌ Error: El módulo de información de bugs no está disponible. Contacta a un administrador.")
+            return
+
+        await bug_info_cog.start_bug_solved_flow(ctx.channel, ctx.author)
+    
     @commands.command(name='limpiar', help='Elimina un número específico de mensajes o todos los mensajes del canal.')
     @commands.has_permissions(manage_messages=True) # Requiere permiso para gestionar mensajes
     async def limpiar(self, ctx, cantidad_o_asterisco: str):
