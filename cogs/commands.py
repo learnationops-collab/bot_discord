@@ -82,6 +82,32 @@ class Commands(commands.Cog):
         help_message = get_help_message(self.bot.commands)
         
         await ctx.send(help_message)
+    
+    @commands.command(name='bug', help='Crea un canal privado para reportar un bug a Operaciones.')
+    async def bug(self, ctx):
+        """
+        Comando para reportar un bug. Crea un canal privado con Operaciones y
+        inicia un flujo de preguntas para recopilar la información.
+        """
+        # Obtenemos las instancias de los cogs necesarios
+        ticket_cog = self.bot.get_cog('TicketManagement')
+        bug_info_cog = self.bot.get_cog('BugInfo')
+
+        if not ticket_cog or not bug_info_cog:
+            await ctx.send("❌ Error: El módulo de gestión de tickets o de información de bugs no está disponible. Contacta a un administrador.")
+            return
+
+        # Llamamos a la función para crear el canal de bug
+        channel, message = await ticket_cog.create_bug_channel(ctx.author)
+
+        if channel:
+            # Si el canal se creó exitosamente, enviamos la confirmación al canal original
+            # y llamamos al flujo de preguntas en el nuevo cog.
+            await ctx.send(f"✅ ¡Gracias por tu reporte! {message}")
+            await bug_info_cog.start_bug_report_flow(channel, ctx.author)
+        else:
+            # Si hubo un error, enviamos el mensaje de error al canal original
+            await ctx.send(f"❌ No se pudo crear el canal de bug. {message}")
 
     @commands.command(name='limpiar', help='Elimina un número específico de mensajes o todos los mensajes del canal.')
     @commands.has_permissions(manage_messages=True) # Requiere permiso para gestionar mensajes

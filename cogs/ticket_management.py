@@ -3,31 +3,59 @@
 import discord
 from discord.ext import commands
 import asyncio
-
-import config # Importa la configuración para acceder a IDs de roles y categorías
-# CloseTicketView y DifficultySelectionView ya no se importan aquí
-# ya que no se crearán nuevos canales ni se cerrarán tickets de esta forma.
+import config
 
 class TicketManagement(commands.Cog):
     """
-    Cog que manejaba la creación y gestión de tickets de soporte técnico y canales de búsqueda de recursos.
-    Ahora, estas interacciones se manejarán directamente en el canal de inicio.
+    Cog que maneja la creación de canales privados para reportes de bugs.
     """
     def __init__(self, bot):
         self.bot = bot
 
-    # Las funciones create_technical_ticket y create_resource_search_channel
-    # han sido eliminadas ya que no se crearán nuevos canales.
-    # La lógica para iniciar estos flujos se ha movido a views/main_menu.py.
+    async def create_bug_channel(self, member: discord.Member):
+        """
+        Crea un canal de texto privado para reportar un bug entre el usuario y el rol de Operaciones.
+        """
+        guild = member.guild
+        category_id = config.GENERAL_CATEGORY_ID
+        role_id = config.OPERECIONES_ROLES_ID
 
-    # El comando cerrar_ticket también se elimina, ya que no hay canales de ticket específicos
-    # para cerrar en este nuevo flujo. Si se necesita una forma de "finalizar" una conversación
-    # en el canal principal, se puede implementar un comando o botón diferente.
-    # @commands.command(name='cerrar_ticket', help='Cierra el canal de soporte actual (solo en canales de ticket).')
-    # async def cerrar_ticket(self, ctx):
-    #    ... (lógica eliminada) ...
+        if not guild or not category_id or not role_id:
+            return None, "Error: Faltan variables de configuración para crear el canal de bug."
 
-# La función setup es necesaria para que Discord.py cargue el cog
+        category = discord.utils.get(guild.categories, id=category_id)
+        if not category:
+            return None, "Error: La categoría general no se encontró."
+
+        try:
+            # Obtener el rol de Operaciones y el objeto del bot en el servidor
+            operaciones_role = guild.get_role(role_id)
+            bot_member = guild.me
+            if not operaciones_role:
+                return None, "Error: El rol de Operaciones no se encontró."
+
+            # Definir permisos para el canal privado
+            overwrites = {
+                guild.default_role: discord.PermissionOverwrite(read_messages=False), # Ocultar para todos
+                member: discord.PermissionOverwrite(read_messages=True, send_messages=True), # Permitir al creador
+                operaciones_role: discord.PermissionOverwrite(read_messages=True, send_messages=True), # Permitir a Operaciones
+                bot_member: discord.PermissionOverwrite(read_messages=True, send_messages=True) # Permitir al bot leer y enviar mensajes
+            }
+
+            channel_name = f"bug-{member.name.lower().replace(' ', '-')}"
+            new_channel = await category.create_text_channel(
+                name=channel_name,
+                overwrites=overwrites
+            )
+
+            return new_channel, f"Canal de bug creado: {new_channel.mention}"
+
+        except discord.Forbidden:
+            return None, "Error: No tengo permisos para crear canales o configurar permisos. Asegúrate de que el bot tiene el permiso 'manage_channels'."
+        except Exception as e:
+            print(f"Error al crear el canal de bug: {e}")
+            return None, f"Error inesperado al crear el canal de bug: `{e}`"
+
 async def setup(bot):
     """
     Función de configuración para añadir el cog de TicketManagement al bot.
