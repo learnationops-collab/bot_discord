@@ -37,6 +37,18 @@ SOPORTE_TECNICO_ROLE_ID = int(os.getenv('SOPORTE_TECNICO_ROLE_ID')) if os.getenv
 # Ejemplo en .env: ATENCION_AL_CLIENTE_ROLE_ID=456456456456456456
 ATENCION_AL_CLIENTE_ROLE_ID = int(os.getenv('ATENCION_AL_CLIENTE_ROLE_ID')) if os.getenv('ATENCION_AL_CLIENTE_ROLE_ID') else None
 
+# ID del servidor
+SERVER_ID = int(os.getenv('SERVER_ID')) if os.getenv('SERVER_ID') else None
+
+# ID del canal donde se enviarán las notificaciones de nuevos bugs y reportes de cierre.
+BUGS_CHANNEL_ID = int(os.getenv('BUGS_CHANNEL_ID')) if os.getenv('BUGS_CHANNEL_ID') else None
+
+# ID del rol de "Operaciones" que debe ser mencionado en los bugs.
+OPERECIONES_ROLES_ID = int(os.getenv('OPERECIONES_ROLES_ID')) if os.getenv('OPERECIONES_ROLES_ID') else None
+
+# ID de la categoría general del servidor, donde se pueden crear canales generales.
+GENERAL_CATEGORY_ID = int(os.getenv('GENERAL_CATEGORY_ID')) if os.getenv('GENERAL_CATEGORY_ID') else None
+
 # Diccionario para almacenar el estado de las conversaciones de "Hablar con un Humano"
 # Formato: {user_id: {'state': int, 'answers': [], 'channel_id': None}}
 # state: 0 = no en conversación, 1 = esperando respuesta a Pregunta 1, etc.
@@ -64,6 +76,13 @@ def validate_env_variables():
         print("¡ADVERTENCIA! 'SOPORTE_TECNICO_ROLE_ID' no está definido. La asignación de permisos de soporte técnico podría fallar.")
     if ATENCION_AL_CLIENTE_ROLE_ID is None:
         print("¡ADVERTENCIA! 'ATENCION_AL_CLIENTE_ROLE_ID' no está definido. La asignación de permisos de atención al cliente podría fallar.")
-
+    if SERVER_ID is None:
+        print("¡ADVERTENCIA! La variable de entorno 'SERVER_ID' no está definida.")
+    if BUGS_CHANNEL_ID is None:
+        print("¡ADVERTENCIA! La variable de entorno 'BUGS_CHANNEL_ID' no está definida. La funcionalidad de bugs podría fallar.")
+    if OPERECIONES_ROLES_ID is None:
+        print("¡ADVERTENCIA! La variable de entorno 'OPERECIONES_ROLES_ID' no está definida. La mención del rol de operaciones podría fallar.")
+    if GENERAL_CATEGORY_ID is None:
+        print("¡ADVERTENCIA! 'GENERAL_CATEGORY_ID' no está definido. La creación de canales generales podría fallar.")
 # Llama a la función de validación al cargar el módulo
 validate_env_variables()
