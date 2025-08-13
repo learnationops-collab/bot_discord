@@ -5,12 +5,16 @@ from discord.ext import commands
 import asyncio
 
 import config # Importa la configuración para acceder a user_conversations y IDs
-from views.main_menu import CloseTicketView # Importa la vista para cerrar el ticket
+
+from views.main_menu import CloseTicketView # Importa la vista para cerrar el ticket (aunque ya no se usará directamente para el nuevo canal, se mantiene si hay otros flujos que la usen)
+
 
 class HumanInteraction(commands.Cog):
     """
     Cog que maneja el flujo de interacción para "Hablar con un Humano",
-    incluyendo preguntas y creación de canales de atención al cliente.
+
+    incluyendo preguntas y gestión de las respuestas en el mismo canal.
+
     """
     def __init__(self, bot):
         self.bot = bot
@@ -26,78 +30,66 @@ class HumanInteraction(commands.Cog):
             return
 
         user_id = message.author.id
-        # Si el usuario está en una conversación de "Hablar con un Humano"
+
+        # Si el usuario está en una conversación de "Hablar con un Humano" y el estado es mayor a 0 (indicando que las preguntas han comenzado)
         if user_id in config.user_conversations and config.user_conversations[user_id]['state'] > 0:
             conversation_state = config.user_conversations[user_id]
             current_question_number = conversation_state['state']
-
+            
             # Almacenar la respuesta actual
+            # Aquí almacenamos la respuesta de la pregunta anterior
             conversation_state['answers'].append(f"Pregunta {current_question_number}: {message.content}")
 
-            if current_question_number == 1:
-                conversation_state['state'] = 2
-                await message.channel.send("**2. ¿Qué soluciones has intentado hasta ahora?**")
-            elif current_question_number == 2:
-                # Todas las preguntas respondidas (se eliminó la pregunta 3)
-                config.user_conversations[user_id]['state'] = 0 # Reiniciar estado
+            # Definir las preguntas
+            questions = [
+                "1. Describe el problema o dificultad que encontraste. Sé específico y da todos los detalles necesarios para que podamos ayudarte mejor.",
+                "2. ¿Qué acciones intentaste para resolverlo?",
+                "3. ¿Qué herramienta del programa crees que podría ayudarte a solucionarlo?",
+                "4. ¡Muchas gracias por tu información! Mientras te contacta la Client Success Manager, ¿cuál podría ser tu primer paso para empezar a resolver tu problema?"
+            ]
+
+            # Avanzar a la siguiente pregunta o finalizar la conversación
+            if current_question_number < len(questions):
+                conversation_state['state'] += 1
+                await message.channel.send(f"**{questions[conversation_state['state'] - 1]}**")
+            else:
+                # Todas las preguntas respondidas. Publicar las respuestas en el canal actual y etiquetar.
+                config.user_conversations[user_id]['state'] = 0 # Reiniciar estado para el usuario
                 
                 guild = message.guild
+                
+                # Publicar las respuestas en el canal actual
+                answers_message = "**ℹ️ Información:**\n"
+                for i, ans_text in enumerate(conversation_state['answers']):
+                    # Reconstruir las preguntas originales en el mensaje final
+                    # Se usa .split('.', 1)[0] para obtener solo el número de la pregunta
+                    # y .split(':', 1)[1].strip() para obtener la respuesta del usuario.
+                    answers_message += f"**{questions[i].split('.', 1)[0]}.** {ans_text.split(':', 1)[1].strip()}\n"
+                selected_human_id = conversation_state.get('selected_human')
+                '''
+                answers_message += f"\nEstudiante: {message.author.mention}"
+                # Etiquetar a la persona seleccionada
+                if selected_human_id:
+                    answers_message += f"\nConsultor asignado: <@{selected_human_id}>"
+                # Enviar el resumen de la conversación
+                await message.channel.send(answers_message)
+                '''
 
-                # Validar que el ID del rol de atención al cliente esté configurado
-                if config.ATENCION_AL_CLIENTE_ROLE_ID is None:
-                    await message.channel.send("❌ Error de configuración: El ID del rol de Atención al Cliente no está definido en .env o no es válido. Contacta a un administrador.")
-                    return
-                human_contact_role = guild.get_role(config.ATENCION_AL_CLIENTE_ROLE_ID)
-                if not human_contact_role:
-                    await message.channel.send("❌ Error: No se encontró el rol de Atención al Cliente con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.")
-                    return
+                # Etiquetar a la persona específica y al rol de atención al cliente (si existe)
+                mention_message = f"\nHola, <@{selected_human_id}>, el caso de {message.author.mention} ya está listo para su revisión, completó todos los pasos!"
+                
+                await message.channel.send(mention_message)
 
-                # Definir permisos para el nuevo canal de atención al cliente
-                overwrites = {
-                    guild.default_role: discord.PermissionOverwrite(read_messages=False),
-                    message.author: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-                    self.bot.user: discord.PermissionOverwrite(read_messages=True, send_messages=True),
-                    human_contact_role: discord.PermissionOverwrite(read_messages=True, send_messages=True)
-                }
+                await message.channel.send(
+                    f"\nGracias, {message.author.mention}, por seguir los pasos detalladamente! Estamos en proceso, muy pronto vas a tener novedades aquí mismo para ayudarte personalizadamente!"
+                )
 
-                try:
-                    # Validar que el ID de la categoría de atención al cliente esté configurado
-                    if config.ATENCION_AL_CLIENTE_CATEGORY_ID is None:
-                        await message.channel.send("❌ Error de configuración: El ID de la categoría de Atención al Cliente no está definido en .env o no es válido. Contacta a un administrador.")
-                        return
-                    category = guild.get_channel(config.ATENCION_AL_CLIENTE_CATEGORY_ID)
-                    if not category:
-                        await message.channel.send("❌ Error: No se encontró la categoría de Atención al Cliente con el ID proporcionado. Por favor, verifica el archivo .env o contacta a un administrador.")
-                        return
-
-                    channel_name = f"atencion-cliente-{message.author.name.lower().replace(' ', '-')}-{message.author.discriminator}"
-                    new_human_channel = await category.create_text_channel(channel_name, overwrites=overwrites)
-                    
-                    config.user_conversations[user_id]['channel_id'] = new_human_channel.id # Guardar el ID del canal creado
-
-                    await message.channel.send(
-                        f"¡Gracias por tus respuestas, {message.author.mention}! He creado un canal privado para que nuestro equipo de atención al cliente te asista: {new_human_channel.mention}\n"
-                        "Por favor, dirígete a ese canal. Un miembro del equipo revisará la información y se pondrá en contacto contigo pronto.\n\n"
-                        "Para salir de este canal y cerrarlo cuando tu problema esté resuelto, usa el botón 'Cerrar Ticket' o el comando `&cerrar_ticket`."
-                    )
-
-                    # Publicar las respuestas en el nuevo canal de atención al cliente
-                    answers_message = "**ℹ️ Información del Cliente para Atención al Cliente:**\n"
-                    for ans in conversation_state['answers']:
-                        answers_message += f"- {ans}\n"
-                    answers_message += f"\nCliente: {message.author.mention}"
-                    
-                    await new_human_channel.send(answers_message, view=CloseTicketView(new_human_channel))
-                    await new_human_channel.send(f"{human_contact_role.mention}, un nuevo cliente necesita asistencia. Por favor, revisen el canal.")
-
-                except discord.Forbidden:
-                    await message.channel.send("❌ No tengo los permisos necesarios para crear canales de atención al cliente. Por favor, asegúrate de que el bot tenga el permiso 'Gestionar Canales'.")
-                except Exception as e:
-                    await message.channel.send(f"❌ Ocurrió un error al crear el canal de atención al cliente: `{e}`")
-                    print(f"Error al crear canal de atención al cliente: {e}")
+                # Limpiar el estado de la conversación para el usuario una vez finalizada
+                del config.user_conversations[user_id]
             
             # No procesar el mensaje como un comando si está en un flujo de conversación
             return
+
         
         # ELIMINADO: La llamada a await self.bot.process_commands(message) ha sido eliminada de aquí.
         # Esto evita que los comandos se procesen dos veces, ya que bot.py ya lo maneja.
