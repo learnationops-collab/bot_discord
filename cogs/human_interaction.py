@@ -5,12 +5,16 @@ from discord.ext import commands
 import asyncio
 
 import config # Importa la configuración para acceder a user_conversations y IDs
+
 from views.main_menu import CloseTicketView # Importa la vista para cerrar el ticket (aunque ya no se usará directamente para el nuevo canal, se mantiene si hay otros flujos que la usen)
+
 
 class HumanInteraction(commands.Cog):
     """
     Cog que maneja el flujo de interacción para "Hablar con un Humano",
+
     incluyendo preguntas y gestión de las respuestas en el mismo canal.
+
     """
     def __init__(self, bot):
         self.bot = bot
@@ -26,6 +30,7 @@ class HumanInteraction(commands.Cog):
             return
 
         user_id = message.author.id
+
         # Si el usuario está en una conversación de "Hablar con un Humano" y el estado es mayor a 0 (indicando que las preguntas han comenzado)
         if user_id in config.user_conversations and config.user_conversations[user_id]['state'] > 0:
             conversation_state = config.user_conversations[user_id]
@@ -92,6 +97,7 @@ class HumanInteraction(commands.Cog):
             
             # No procesar el mensaje como un comando si está en un flujo de conversación
             return
+
         
         # ELIMINADO: La llamada a await self.bot.process_commands(message) ha sido eliminada de aquí.
         # Esto evita que los comandos se procesen dos veces, ya que bot.py ya lo maneja.
