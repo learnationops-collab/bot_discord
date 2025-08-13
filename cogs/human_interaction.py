@@ -65,31 +65,23 @@ class HumanInteraction(commands.Cog):
                     # Se usa .split('.', 1)[0] para obtener solo el número de la pregunta
                     # y .split(':', 1)[1].strip() para obtener la respuesta del usuario.
                     answers_message += f"**{questions[i].split('.', 1)[0]}.** {ans_text.split(':', 1)[1].strip()}\n"
-
-                answers_message += f"\nCliente: {message.author.mention}"
-                
-                # Etiquetar a la persona seleccionada
                 selected_human_id = conversation_state.get('selected_human')
+                '''
+                answers_message += f"\nEstudiante: {message.author.mention}"
+                # Etiquetar a la persona seleccionada
                 if selected_human_id:
-                    answers_message += f"\nContacto solicitado: <@{selected_human_id}>"
-
+                    answers_message += f"\nConsultor asignado: <@{selected_human_id}>"
                 # Enviar el resumen de la conversación
                 await message.channel.send(answers_message)
+                '''
 
                 # Etiquetar a la persona específica y al rol de atención al cliente (si existe)
-                mention_message = f"{message.author.mention} necesita asistencia. Por favor, revisa la información."
-                if config.ATENCION_AL_CLIENTE_ROLE_ID:
-                    human_contact_role = guild.get_role(config.ATENCION_AL_CLIENTE_ROLE_ID)
-                    if human_contact_role:
-                        mention_message = f"{human_contact_role.mention}, {mention_message}"
-                
-                if selected_human_id:
-                    mention_message += f" <@{selected_human_id}>, te han seleccionado para este caso."
+                mention_message = f"\nHola, <@{selected_human_id}>, el caso de {message.author.mention} ya está listo para su revisión, completó todos los pasos!"
                 
                 await message.channel.send(mention_message)
 
                 await message.channel.send(
-                    f"¡Gracias por tus respuestas, {message.author.mention}! Nuestro equipo de atención al cliente revisará la información y se pondrá en contacto contigo pronto en este mismo chat."
+                    f"\nGracias, {message.author.mention}, por seguir los pasos detalladamente! Estamos en proceso, muy pronto vas a tener novedades aquí mismo para ayudarte personalizadamente!"
                 )
 
                 # Limpiar el estado de la conversación para el usuario una vez finalizada
