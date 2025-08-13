@@ -476,24 +476,20 @@ class MainMenuView(discord.ui.View):
     async def request_resource_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """
         Maneja la interacción cuando se hace clic en el botón 'Necesito un Recurso'.
-        Inicia el flujo de selección de recursos creando un canal privado.
+        Inicia el flujo de selección de recursos en el mismo canal.
         """
-        # 1. Deferir la interacción inmediatamente para evitar el error "Unknown interaction"
-        await interaction.response.defer() 
+        # Deferir la interacción inmediatamente
+        await interaction.response.defer()
 
-        # 2. Deshabilita los botones del menú principal para esta interacción
+        # Deshabilita los botones del menú principal para esta interacción
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(content="Has seleccionado 'Necesito un Recurso'. Iniciando búsqueda en un canal privado...", view=self) # Actualiza el mensaje original con los botones deshabilitados
-        
-        # 3. Llama a la lógica del cog de gestión de tickets para crear el canal de recursos
-        ticket_cog = self.bot.get_cog("TicketManagement")
-        if ticket_cog:
-            await ticket_cog.create_resource_search_channel(interaction)
-        else:
-            await interaction.followup.send("❌ Error interno: El módulo de gestión de tickets no está cargado. Contacta a un administrador.", ephemeral=True)
-        
-        # No eliminar el mensaje original, solo deshabilitar los botones.
+        await interaction.message.edit(content="Has seleccionado 'Necesito un Recurso'. Iniciando búsqueda...", view=self)
+
+        # Crear y enviar la vista de selección de dificultad en el mismo canal
+        difficulty_view = DifficultySelectionView(self.bot)
+        # El mensaje se envía a través de `followup` ya que la interacción ya fue diferida
+        difficulty_view.message = await interaction.followup.send("Por favor, selecciona la dificultad del recurso:", view=difficulty_view)
 
 
     @discord.ui.button(label="Consultores", style=discord.ButtonStyle.danger, custom_id="human_contact", emoji="🙋")
