@@ -1,5 +1,6 @@
 # Entorno virtual de Python
 venv/
+bot/
 clean_venv/
 .env
 

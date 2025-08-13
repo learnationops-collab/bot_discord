@@ -37,8 +37,16 @@ SOPORTE_TECNICO_ROLE_ID = int(os.getenv('SOPORTE_TECNICO_ROLE_ID')) if os.getenv
 # Ejemplo en .env: ATENCION_AL_CLIENTE_ROLE_ID=456456456456456456
 ATENCION_AL_CLIENTE_ROLE_ID = int(os.getenv('ATENCION_AL_CLIENTE_ROLE_ID')) if os.getenv('ATENCION_AL_CLIENTE_ROLE_ID') else None
 
+# --- CONFIGURACIÓN DE IDs DE USUARIOS PARA CONTACTO HUMANO ---
+# IDs de los usuarios que pueden ser contactados a través del menú "Hablar con un Humano".
+# Ejemplo en .env: VALERY_USER_ID=111122223333444455
+# Ejemplo en .env: BELU_USER_ID=555544443333222211
+VALERY_USER_ID = int(os.getenv('VALERY_USER_ID')) if os.getenv('VALERY_USER_ID') else None
+BELU_USER_ID = int(os.getenv('BELU_USER_ID')) if os.getenv('BELU_USER_ID') else None
+
+
 # Diccionario para almacenar el estado de las conversaciones de "Hablar con un Humano"
-# Formato: {user_id: {'state': int, 'answers': [], 'channel_id': None}}
+# Formato: {user_id: {'state': int, 'answers': [], 'channel_id': None, 'selected_human': None}}
 # state: 0 = no en conversación, 1 = esperando respuesta a Pregunta 1, etc.
 # Este diccionario se mantendrá aquí por simplicidad, pero en una aplicación más grande
 # podría considerarse moverlo a una base de datos o un sistema de caché.
@@ -64,6 +72,10 @@ def validate_env_variables():
         print("¡ADVERTENCIA! 'SOPORTE_TECNICO_ROLE_ID' no está definido. La asignación de permisos de soporte técnico podría fallar.")
     if ATENCION_AL_CLIENTE_ROLE_ID is None:
         print("¡ADVERTENCIA! 'ATENCION_AL_CLIENTE_ROLE_ID' no está definido. La asignación de permisos de atención al cliente podría fallar.")
+    if VALERY_USER_ID is None:
+        print("¡ADVERTENCIA! 'VALERY_USER_ID' no está definido. El botón de Valery no funcionará.")
+    if BELU_USER_ID is None:
+        print("¡ADVERTENCIA! 'BELU_USER_ID' no está definido. El botón de Belu no funcionará.")
 
 # Llama a la función de validación al cargar el módulo
 validate_env_variables()

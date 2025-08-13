@@ -350,6 +350,78 @@ class DifficultySelectionView(discord.ui.View):
         return True # Permitir que otros botones se procesen
 
 
+# Nueva clase de vista para la selección de contacto humano
+class HumanSelectionView(discord.ui.View):
+    """
+    Vista para seleccionar a la persona de contacto (Valery o Belu).
+    """
+    def __init__(self, bot, original_user_id: int):
+        super().__init__(timeout=180) # 3 minutos para que el usuario seleccione
+        self.bot = bot
+        self.original_user_id = original_user_id
+        self.selected_human_id = None
+        self.message = None # Para almacenar el mensaje original de esta vista
+
+    async def on_timeout(self):
+        """
+        Se ejecuta cuando el tiempo de espera de la vista ha expirado.
+        Deshabilita todos los botones.
+        """
+        for item in self.children:
+            item.disabled = True
+        if self.message:
+            try:
+                await self.message.edit(content="La selección de contacto ha expirado. Puedes usar `&iniciar` para intentarlo de nuevo.", view=self)
+            except discord.NotFound:
+                print("Mensaje de HumanSelectionView no encontrado al intentar editar en timeout.")
+            except Exception as e:
+                print(f"Error al editar mensaje de HumanSelectionView en timeout: {e}")
+
+    @discord.ui.button(label="Valery", style=discord.ButtonStyle.secondary, custom_id="select_valery", emoji="👩‍💼")
+    async def valery_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """
+        Maneja la selección del contacto Valery.
+        """
+        if interaction.user.id != self.original_user_id:
+            await interaction.response.send_message("Solo la persona que inició la conversación puede seleccionar un contacto.", ephemeral=True)
+            return
+
+        await self._select_human(interaction, config.VALERY_USER_ID)
+
+    @discord.ui.button(label="Belu", style=discord.ButtonStyle.secondary, custom_id="select_belu", emoji="👩‍💼")
+    async def belu_button(self, interaction: discord.Interaction, button: discord.ui.Button):
+        """
+        Maneja la selección del contacto Belu.
+        """
+        if interaction.user.id != self.original_user_id:
+            await interaction.response.send_message("Solo la persona que inició la conversación puede seleccionar un contacto.", ephemeral=True)
+            return
+
+        await self._select_human(interaction, config.BELU_USER_ID)
+
+    async def _select_human(self, interaction: discord.Interaction, human_id: int):
+        """
+        Lógica común para la selección de un contacto humano.
+        """
+        await interaction.response.defer()
+
+        # Deshabilitar todos los botones de esta vista
+        for item in self.children:
+            item.disabled = True
+        await interaction.message.edit(content=interaction.message.content + f"\n\nHas seleccionado a: <@{human_id}>", view=self)
+
+        self.selected_human_id = human_id
+        # Iniciar el estado de la conversación con la primera pregunta
+        config.user_conversations[self.original_user_id]['state'] = 1
+        config.user_conversations[self.original_user_id]['selected_human'] = self.selected_human_id
+
+        await interaction.followup.send(
+            "¡Perfecto! Para poder ayudarte mejor, por favor, responde las preguntas:\n\n"
+            "**1. Describe el problema o dificultad que encontraste. Sé específico y da todos los detalles necesarios para que podamos ayudarte mejor.**",
+            ephemeral=False
+        )
+
+
 class MainMenuView(discord.ui.View):
     """
     Vista del menú principal del bot, presentando opciones iniciales con botones.
@@ -375,6 +447,7 @@ class MainMenuView(discord.ui.View):
             except Exception as e:
                 print(f"Error al editar mensaje de MainMenuView en timeout: {e}")
 
+    '''
     @discord.ui.button(label="Ayuda Técnica", style=discord.ButtonStyle.primary, custom_id="technical_help", emoji="🛠️")
     async def technical_help_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """
@@ -397,6 +470,7 @@ class MainMenuView(discord.ui.View):
             await interaction.followup.send("❌ Error interno: El módulo de gestión de tickets no está cargado. Contacta a un administrador.", ephemeral=True)
         
         # No eliminar el mensaje original, solo deshabilitar los botones.
+    '''
 
     @discord.ui.button(label="Necesito un Recurso", style=discord.ButtonStyle.success, custom_id="request_resource", emoji="📚")
     async def request_resource_button(self, interaction: discord.Interaction, button: discord.ui.Button):
@@ -422,36 +496,30 @@ class MainMenuView(discord.ui.View):
         # No eliminar el mensaje original, solo deshabilitar los botones.
 
 
-    @discord.ui.button(label="Hablar con un Humano", style=discord.ButtonStyle.danger, custom_id="human_contact", emoji="🙋")
+    @discord.ui.button(label="Consultores", style=discord.ButtonStyle.danger, custom_id="human_contact", emoji="🙋")
     async def human_contact_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         """
         Maneja la interacción cuando se hace clic en el botón 'Hablar con un Humano'.
-        Inicia un flujo de preguntas para recopilar información, gestionado por el cog de interacción humana.
+        Ahora, en lugar de iniciar preguntas, muestra los botones de selección de persona.
         """
-        # 1. Deferir la interacción inmediatamente para evitar el error "Unknown interaction"
+        # 1. Deferir la interacción inmediatamente
         await interaction.response.defer()
 
         # 2. Deshabilita los botones del menú principal para esta interacción
         for item in self.children:
             item.disabled = True
-        await interaction.message.edit(content="Has seleccionado 'Hablar con un Humano'. Iniciando conversación...", view=self) # Actualiza el mensaje original con los botones deshabilitados
+        await interaction.message.edit(content="Has seleccionado 'Consultores'. ¿Con quién te gustaría hablar?", view=self)
 
         user_id = interaction.user.id
         if user_id in config.user_conversations and config.user_conversations[user_id]['state'] != 0:
             await interaction.followup.send("Ya tienes una conversación en curso para contactar a un humano. Por favor, completa esa conversación o espera.", ephemeral=True)
-            # No eliminamos el mensaje original aquí si el flujo no continúa con un nuevo mensaje
             return
 
-        # 3. Inicializa el estado de la conversación y envía la primera pregunta
-        config.user_conversations[user_id] = {'state': 1, 'answers': [], 'channel_id': None}
-        await interaction.followup.send(
-            "Para poder ayudarte mejor y que un miembro de nuestro equipo te contacte, "
-            "por favor, responde a la primera pregunta en este chat:\n\n"
-            "**1. ¿Cuál es el problema principal que tienes?**",
-            ephemeral=False
-        )
-        
-        # No eliminar el mensaje original, solo deshabilitar los botones.
+        # 3. Inicializa el estado de la conversación (state 0) y envía la nueva vista de selección
+        config.user_conversations[user_id] = {'state': 0, 'answers': [], 'channel_id': None, 'selected_human': None}
+        human_selection_view = HumanSelectionView(self.bot, user_id)
+        # Es crucial asignar el mensaje a la vista para que el on_timeout pueda editarlo
+        human_selection_view.message = await interaction.followup.send("Por favor, selecciona con quién quieres hablar:", view=human_selection_view)
 
 # Este archivo no necesita una función `setup` porque solo contiene clases de vista,
 # que serán instanciadas y utilizadas por los cogs o comandos del bot.
