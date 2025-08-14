@@ -71,9 +71,9 @@ class HumanInteraction(commands.Cog):
                 # Etiquetar a la persona seleccionada
                 if selected_human_id:
                     answers_message += f"\nConsultor asignado: <@{selected_human_id}>"
+                '''
                 # Enviar el resumen de la conversación
                 await message.channel.send(answers_message)
-                '''
 
                 # Etiquetar a la persona específica y al rol de atención al cliente (si existe)
                 mention_message = f"\nHola, <@{selected_human_id}>, el caso de {message.author.mention} ya está listo para su revisión, completó todos los pasos!"
