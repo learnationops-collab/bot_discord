@@ -138,17 +138,17 @@ class DBManager:
         if normalized_category:
             filter_conditions.append({
                 "property": "category",
-                "select": {"equals": normalized_category}
+                "select": {"equals": category}
             })
         if normalized_subcategory:
             filter_conditions.append({
                 "property": "subcategory",
-                "select": {"equals": normalized_subcategory}
+                "select": {"equals": subcategory}
             })
         if normalized_difficulty:
             filter_conditions.append({
                 "property": "difficulty",
-                "select": {"equals": normalized_difficulty}
+                "select": {"equals": difficulty}
             })
 
         query_filter = {}
@@ -248,7 +248,10 @@ class DBManager:
         """
         if not self.notion:
             self.connect()
+            print("Conectando a Notion para obtener subcategorías...")
         if not self.notion:
+            print("No se pudo conectar a Notion para obtener subcategorías.")
+            print("Asegúrate de que el cliente de Notion esté inicializado correctamente.")
             return []
 
         subcategories = set()
@@ -258,15 +261,18 @@ class DBManager:
                 "property": "difficulty",
                 "select": {"equals": self._normalize_string(difficulty)}
             })
+            print(f"Filtrando por dificultad: {difficulty}")
         if category:
             filter_conditions.append({
                 "property": "category",
-                "select": {"equals": self._normalize_string(category)}
+                "select": {"equals": category}
             })
+            print(f"Filtrando por categoría: {category}")
 
         query_filter = {}
         if filter_conditions:
             query_filter["and"] = filter_conditions
+            print(f"Condiciones de filtro aplicadas: {query_filter}")
 
         try:
             pages = collect_paginated_api(
@@ -277,12 +283,13 @@ class DBManager:
             for page in pages:
                 subcategory = page["properties"].get("subcategory", {}).get("select", {}).get("name")
                 if subcategory:
+                    print(f"Subcategoría encontrada: {subcategory}")
                     subcategories.add(subcategory)
         except Exception as e:
             print(f"Error al obtener subcategorías distintas de Notion: {e}")
         return sorted(list(subcategories))
 
-
+'''
 # Ejemplo de uso (solo para pruebas, no se ejecutará directamente en el bot)
 if __name__ == "__main__":
     # Asegúrate de tener estas variables en tu .env para que el ejemplo funcione
@@ -341,3 +348,4 @@ if __name__ == "__main__":
         print("No se pudo conectar a la base de datos de Notion para las pruebas.")
 
     db_manager.close() # Asegurarse de "cerrar" el cliente al finalizar
+'''

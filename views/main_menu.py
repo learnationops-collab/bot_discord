@@ -260,23 +260,27 @@ class CategorySelectionView(discord.ui.View):
             selected_category = interaction.data["custom_id"].replace("cat_", "")
             await interaction.response.defer() # Deferir la respuesta para dar tiempo a la DB
             
-            # Obtener subcategorías para la dificultad y categoría seleccionadas
-            subcategories = db_manager.get_distinct_subcategories(difficulty=self.difficulty, category=selected_category)
-            
+            # Deshabilitar los botones de esta vista
             for item in self.children:
                 item.disabled = True
             await interaction.message.edit(content=f"Has seleccionado la categoría: **{selected_category.title()}** (Dificultad: {self.difficulty.title()}).", view=self)
 
+            # Obtener subcategorías para la dificultad y categoría seleccionadas
+            subcategories = db_manager.get_distinct_subcategories(difficulty=self.difficulty, category=selected_category)
+            print(f"Subcategorías encontradas para '{selected_category}': {subcategories}") # DEBUG: Para ver qué devuelve la DB
             if subcategories:
                 subcategory_view = SubcategorySelectionView(self.bot, self.difficulty, selected_category)
                 await interaction.followup.send("Por favor, selecciona una subcategoría o ver todos:", view=subcategory_view)
                 subcategory_view.message = interaction.message # Asignar el mensaje para timeout
+                print("Subcategorías encontradas, enviando vista de selección.")
             else:
                 # Si no hay subcategorías, ir directamente a mostrar recursos de la categoría
                 resources = db_manager.get_resources(category=selected_category, difficulty=self.difficulty)
                 resource_view = ResourceDisplayView(resources, self.difficulty, selected_category)
                 await resource_view.send_resources(interaction)
+                print("No se encontraron subcategorías, mostrando recursos directamente.")
             return False # No continuar con otros botones en esta interacción
+
         return True # Permitir que otros botones se procesen
 
 
