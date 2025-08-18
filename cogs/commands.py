@@ -125,7 +125,7 @@ class Commands(commands.Cog):
             return
 
         await bug_info_cog.start_bug_solved_flow(ctx.channel, ctx.author)
-    
+    '''
     @commands.command(name='limpiar', help='Elimina un número específico de mensajes o todos los mensajes del canal.')
     @commands.has_permissions(manage_messages=True) # Requiere permiso para gestionar mensajes
     async def limpiar(self, ctx, cantidad_o_asterisco: str):
@@ -176,6 +176,7 @@ class Commands(commands.Cog):
         else:
             await ctx.send(f"❌ Ocurrió un error inesperado con el comando limpiar: `{error}`") # No eliminar el mensaje
             print(f"Error inesperado en limpiar_error: {error}")
+    '''
 
 # La función setup es necesaria para que Discord.py cargue el cog
 async def setup(bot):
