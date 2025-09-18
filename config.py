@@ -17,6 +17,10 @@ TOKEN = os.getenv('TOKEN')
 # Ejemplo en .env: NUEVO_INGRESO_CHANNEL_ID=123456789012345678
 NUEVO_INGRESO_CHANNEL_ID = int(os.getenv('NUEVO_INGRESO_CHANNEL_ID')) if os.getenv('NUEVO_INGRESO_CHANNEL_ID') else None
 
+# ID de la categoría donde se crearán los canales privados para los nuevos miembros.
+# Ejemplo en .env: NUEVO_INGRESO_CATEGORY_ID=123456789012345679
+NUEVO_INGRESO_CATEGORY_ID = int(os.getenv('NUEVO_INGRESO_CATEGORY_ID')) if os.getenv('NUEVO_INGRESO_CATEGORY_ID') else None
+
 # ID de la categoría donde se crearán los canales de ayuda técnica.
 # Ejemplo en .env: AYUDA_TECNICA_CATEGORY_ID=987654321098765432
 AYUDA_TECNICA_CATEGORY_ID = int(os.getenv('AYUDA_TECNICA_CATEGORY_ID')) if os.getenv('AYUDA_TECNICA_CATEGORY_ID') else None
@@ -79,6 +83,8 @@ def validate_env_variables():
         print("¡ADVERTENCIA! La variable de entorno 'TOKEN' no está definida. El bot no podrá iniciar sesión.")
     if NUEVO_INGRESO_CHANNEL_ID is None:
         print("¡ADVERTENCIA! 'NUEVO_INGRESO_CHANNEL_ID' no está definido. La bienvenida automática no funcionará.")
+    if NUEVO_INGRESO_CATEGORY_ID is None:
+        print("¡ADVERTENCIA! 'NUEVO_INGRESO_CATEGORY_ID' no está definido. La creación de canales para nuevos ingresos podría fallar.")
     if AYUDA_TECNICA_CATEGORY_ID is None:
         print("¡ADVERTENCIA! 'AYUDA_TECNICA_CATEGORY_ID' no está definido. La creación de canales de ayuda técnica podría fallar.")
     if ATENCION_AL_CLIENTE_CATEGORY_ID is None:
