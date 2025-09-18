@@ -40,6 +40,7 @@ SOPORTE_TECNICO_ROLE_ID = int(os.getenv('SOPORTE_TECNICO_ROLE_ID')) if os.getenv
 # ID del rol que será notificado y tendrá acceso a los canales de atención al cliente.
 # Ejemplo en .env: ATENCION_AL_CLIENTE_ROLE_ID=456456456456456456
 ATENCION_AL_CLIENTE_ROLE_ID = int(os.getenv('ATENCION_AL_CLIENTE_ROLE_ID')) if os.getenv('ATENCION_AL_CLIENTE_ROLE_ID') else None
+NEURO_TEAM_ROLE_ID = int(os.getenv('NEURO_TEAM_ROLE_ID')) if os.getenv('NEURO_TEAM_ROLE_ID') else None
 
 
 # --- CONFIGURACIÓN DE IDs DE USUARIOS PARA CONTACTO HUMANO ---
@@ -95,7 +96,8 @@ def validate_env_variables():
         print("¡ADVERTENCIA! 'SOPORTE_TECNICO_ROLE_ID' no está definido. La asignación de permisos de soporte técnico podría fallar.")
     if ATENCION_AL_CLIENTE_ROLE_ID is None:
         print("¡ADVERTENCIA! 'ATENCION_AL_CLIENTE_ROLE_ID' no está definido. La asignación de permisos de atención al cliente podría fallar.")
-
+    if NEURO_TEAM_ROLE_ID is None:
+        print("¡ADVERTENCIA! 'NEURO_TEAM_ROLE_ID' no está definido. La asignación de permisos al Neuro-team podría fallar.")
     if VALERY_USER_ID is None:
         print("¡ADVERTENCIA! 'VALERY_USER_ID' no está definido. El botón de Valery no funcionará.")
     if BELU_USER_ID is None:

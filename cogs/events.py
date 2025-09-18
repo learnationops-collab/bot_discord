@@ -33,6 +33,7 @@ class Events(commands.Cog):
         guild = member.guild
         category_id = config.NUEVO_INGRESO_CATEGORY_ID
         role_id = config.ATENCION_AL_CLIENTE_ROLE_ID
+        neuro_team = config.NEURO_TEAM_ROLE_ID
 
         if not all([category_id, role_id]):
             print("Advertencia: La categoría de nuevo ingreso o el rol de atención al cliente no están configurados.")
@@ -52,7 +53,7 @@ class Events(commands.Cog):
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
         }
 
-        channel_name = f"bienvenida-{member.name}"
+        channel_name = f"{member.name}"
         try:
             new_channel = await guild.create_text_channel(
                 name=channel_name,
@@ -60,8 +61,11 @@ class Events(commands.Cog):
                 overwrites=overwrites
             )
             welcome_message = (
-                f"¡Bienvenido/a al servidor de Neurocogniciones, {member.mention}!\n"
-                "Soy el Bot de Neurocogniciones y estoy aquí para ayudarte."
+                f"Holaa {member.mention} ✨ !\n\n"
+                f"Con todo el {neuro_team.mention} te damos la bienvenida a tu Chat Personal!🙌 \n"
+                "En este canal vas a poder conversar con todos los especialistas de Neurocogniciones y además te podremos dar un seguimiento mucho más personalizado!✅ \n\n"
+                "Estamos para todo por aquí, literalmente cualquier duda, feedback, dificultad o barrera que se te presente, nos lo comunicas por aquí y nosotros estaremos al pendiente.🧐 \n\n"
+                "➡️ Puedes usar el @ para mencionar a cualquier miembro, eso ayuda porque nos llega la notificación de que nos etiquetaron!💕"
             )
             await new_channel.send(welcome_message)
         except discord.Forbidden as e:
