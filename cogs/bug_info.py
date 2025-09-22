@@ -25,7 +25,7 @@ class BugInfo(commands.Cog):
         questions = [
             "1. **¿En qué plataforma ocurrió el problema?** (Por ejemplo: Manychat, Kommo, Zapier, Google Sheets, etc.)",
             "2. **Describe el problema en detalle.** (Qué pasó, qué estabas haciendo, etc.)",
-            "3. **¿Qué soluciones has intentado para solucionarlo?**"
+            "3. **Por favor, envía una imagen para ver más detalles del problema**"
         ]
 
         # Almacenará las respuestas del usuario
@@ -39,8 +39,8 @@ class BugInfo(commands.Cog):
         for i, question in enumerate(questions):
             await channel.send(question)
             try:
-                # Esperar la respuesta del usuario con un tiempo de espera de 180 segundos
-                response = await self.bot.wait_for('message', check=check_message, timeout=180.0)
+                # Esperar la respuesta del usuario con un tiempo de espera de 800 segundos
+                response = await self.bot.wait_for('message', check=check_message, timeout=800.0)
                 answers[f"answer_{i+1}"] = response.content
             except asyncio.TimeoutError:
                 # Si el usuario no responde a tiempo
@@ -59,7 +59,7 @@ class BugInfo(commands.Cog):
         
         embed.add_field(name="Plataforma", value=answers.get("answer_1", "N/A"), inline=False)
         embed.add_field(name="Descripción del Problema", value=answers.get("answer_2", "N/A"), inline=False)
-        embed.add_field(name="Soluciones Intentadas", value=answers.get("answer_3", "N/A"), inline=False)
+        embed.add_field(name="Detalles: ", value=answers.get("answer_3", "N/A"), inline=False)
         embed.set_footer(text=f"ID del Usuario: {member.id}")
 
         # Enviar el reporte al canal de bugs oficial y al canal privado
@@ -78,8 +78,8 @@ class BugInfo(commands.Cog):
         await channel.send(f"¡Hola, {member.mention}! Responde a las siguientes preguntas para documentar la solución del bug. El canal se cerrará una vez finalizado el proceso.")
         
         questions = [
-            "1. **¿Qué soluciones se implementaron?**",
-            "2. **¿Cuál fue la solución final?**",
+            "1. **¿Cuál fue la solución?**",
+            "2. **Detalles: **",
             "3. **¿Hay alguna información adicional a tener en cuenta?**"
         ]
 
@@ -91,7 +91,7 @@ class BugInfo(commands.Cog):
         for i, question in enumerate(questions):
             await channel.send(question)
             try:
-                response = await self.bot.wait_for('message', check=check_message, timeout=300.0)
+                response = await self.bot.wait_for('message', check=check_message, timeout=500.0)
                 answers[f"answer_{i+1}"] = response.content
             except asyncio.TimeoutError:
                 await channel.send("❌ Se ha agotado el tiempo. El canal no se cerrará. Puedes usar `&bug_resuelto` nuevamente si lo deseas.")
@@ -100,16 +100,15 @@ class BugInfo(commands.Cog):
         # Compilar el reporte de la solución
         embed = discord.Embed(
             title="✅ Bug Resuelto",
-            description=f"Solución documentada por {member.mention} en el canal `{channel.name}`.",
+            description=f"Solución documentada por {member.mention}.",
             color=0x00ff00  # Verde
         )
         if member.avatar:
             embed.set_thumbnail(url=member.avatar.url)
         
-        embed.add_field(name="Soluciones Implementadas", value=answers.get("answer_1", "N/A"), inline=False)
-        embed.add_field(name="Solución Final", value=answers.get("answer_2", "N/A"), inline=False)
+        embed.add_field(name="Solución Final", value=answers.get("answer_1", "N/A"), inline=False)
+        embed.add_field(name="Detalles: ", value=answers.get("answer_2", "N/A"), inline=False)
         embed.add_field(name="Información a tener en cuenta", value=answers.get("answer_3", "N/A"), inline=False)
-        embed.set_footer(text=f"ID del Usuario: {member.id}")
 
         # Enviar el reporte al canal de bugs oficial y luego cerrar el canal privado
         bug_channel = self.bot.get_channel(config.BUGS_CHANNEL_ID)
