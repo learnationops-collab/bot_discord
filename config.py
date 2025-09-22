@@ -17,6 +17,10 @@ TOKEN = os.getenv('TOKEN')
 # Ejemplo en .env: NUEVO_INGRESO_CHANNEL_ID=123456789012345678
 NUEVO_INGRESO_CHANNEL_ID = int(os.getenv('NUEVO_INGRESO_CHANNEL_ID')) if os.getenv('NUEVO_INGRESO_CHANNEL_ID') else None
 
+# ID de la categoría donde se crearán los canales privados para los nuevos miembros.
+# Ejemplo en .env: NUEVO_INGRESO_CATEGORY_ID=123456789012345679
+NUEVO_INGRESO_CATEGORY_ID = int(os.getenv('NUEVO_INGRESO_CATEGORY_ID')) if os.getenv('NUEVO_INGRESO_CATEGORY_ID') else None
+
 # ID de la categoría donde se crearán los canales de ayuda técnica.
 # Ejemplo en .env: AYUDA_TECNICA_CATEGORY_ID=987654321098765432
 AYUDA_TECNICA_CATEGORY_ID = int(os.getenv('AYUDA_TECNICA_CATEGORY_ID')) if os.getenv('AYUDA_TECNICA_CATEGORY_ID') else None
@@ -36,6 +40,7 @@ SOPORTE_TECNICO_ROLE_ID = int(os.getenv('SOPORTE_TECNICO_ROLE_ID')) if os.getenv
 # ID del rol que será notificado y tendrá acceso a los canales de atención al cliente.
 # Ejemplo en .env: ATENCION_AL_CLIENTE_ROLE_ID=456456456456456456
 ATENCION_AL_CLIENTE_ROLE_ID = int(os.getenv('ATENCION_AL_CLIENTE_ROLE_ID')) if os.getenv('ATENCION_AL_CLIENTE_ROLE_ID') else None
+NEURO_TEAM_ROLE_ID = int(os.getenv('NEURO_TEAM_ROLE_ID')) if os.getenv('NEURO_TEAM_ROLE_ID') else None
 
 
 # --- CONFIGURACIÓN DE IDs DE USUARIOS PARA CONTACTO HUMANO ---
@@ -79,6 +84,8 @@ def validate_env_variables():
         print("¡ADVERTENCIA! La variable de entorno 'TOKEN' no está definida. El bot no podrá iniciar sesión.")
     if NUEVO_INGRESO_CHANNEL_ID is None:
         print("¡ADVERTENCIA! 'NUEVO_INGRESO_CHANNEL_ID' no está definido. La bienvenida automática no funcionará.")
+    if NUEVO_INGRESO_CATEGORY_ID is None:
+        print("¡ADVERTENCIA! 'NUEVO_INGRESO_CATEGORY_ID' no está definido. La creación de canales para nuevos ingresos podría fallar.")
     if AYUDA_TECNICA_CATEGORY_ID is None:
         print("¡ADVERTENCIA! 'AYUDA_TECNICA_CATEGORY_ID' no está definido. La creación de canales de ayuda técnica podría fallar.")
     if ATENCION_AL_CLIENTE_CATEGORY_ID is None:
@@ -89,7 +96,8 @@ def validate_env_variables():
         print("¡ADVERTENCIA! 'SOPORTE_TECNICO_ROLE_ID' no está definido. La asignación de permisos de soporte técnico podría fallar.")
     if ATENCION_AL_CLIENTE_ROLE_ID is None:
         print("¡ADVERTENCIA! 'ATENCION_AL_CLIENTE_ROLE_ID' no está definido. La asignación de permisos de atención al cliente podría fallar.")
-
+    if NEURO_TEAM_ROLE_ID is None:
+        print("¡ADVERTENCIA! 'NEURO_TEAM_ROLE_ID' no está definido. La asignación de permisos al Neuro-team podría fallar.")
     if VALERY_USER_ID is None:
         print("¡ADVERTENCIA! 'VALERY_USER_ID' no está definido. El botón de Valery no funcionará.")
     if BELU_USER_ID is None:

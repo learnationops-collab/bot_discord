@@ -3,7 +3,6 @@
 import discord
 from discord.ext import commands
 import config # Importa la configuración desde el módulo config
-from utils.helpers import get_help_message # Importa la función de ayuda
 
 class Events(commands.Cog):
     """
@@ -26,32 +25,62 @@ class Events(commands.Cog):
     async def on_member_join(self, member):
         """
         Se dispara cuando un nuevo miembro se une al servidor.
-        Envía un mensaje de bienvenida y las indicaciones de uso del bot
-        si el miembro se une al canal de nuevo ingreso configurado.
+        Crea un nuevo canal privado para el miembro y le da la bienvenida.
         """
+        print(f"[DEBUG] Nuevo miembro detectado: {member} (ID: {member.id})")
         if member.bot:
-            # Ignorar si el miembro que se une es otro bot
+            print("[DEBUG] El miembro es un bot, no se crea canal.")
             return
 
-        # Validar que el ID del canal de nuevo ingreso esté configurado
-        if config.NUEVO_INGRESO_CHANNEL_ID is None:
-            print("Advertencia: NUEVO_INGRESO_CHANNEL_ID no está definido en .env o no es válido. La bienvenida automática no funcionará.")
+        guild = member.guild
+        category_id = config.NUEVO_INGRESO_CATEGORY_ID
+        role_id = config.ATENCION_AL_CLIENTE_ROLE_ID
+        neuro_team = config.NEURO_TEAM_ROLE_ID
+
+        print(f"[DEBUG] category_id: {category_id}, role_id: {role_id}, neuro_team: {neuro_team}")
+
+        if not all([category_id, role_id]):
+            print("Advertencia: La categoría de nuevo ingreso o el rol de atención al cliente no están configurados.")
             return
 
-        # Obtener el canal de nuevo ingreso usando el ID de configuración
-        channel = self.bot.get_channel(config.NUEVO_INGRESO_CHANNEL_ID)
-        if channel:
-            welcome_message = (
-                f"¡Bienvenido/a al servidor de Neurocogniciones, {member.mention}!\n"
-                "Soy el Bot de Neurocogniciones y estoy aquí para ayudarte.\n\n"
-                "Para comenzar, puedes usar el comando `&iniciar` para interactuar con nuestros menús de ayuda.\n\n"
-                "Aquí tienes una guía rápida de cómo usarme:\n"
+        category = guild.get_channel(category_id)
+        atencion_role = guild.get_role(role_id)
+
+        print(f"[DEBUG] category: {category}, atencion_role: {atencion_role}")
+
+        if not category or not atencion_role:
+            print("Advertencia: No se pudo encontrar la categoría o el rol especificado.")
+            return
+
+        overwrites = {
+            guild.default_role: discord.PermissionOverwrite(read_messages=False),
+            member: discord.PermissionOverwrite(read_messages=True),
+            atencion_role: discord.PermissionOverwrite(read_messages=True),
+            guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
+        }
+
+        channel_name = f"{member.name}"
+        try:
+            print(f"[DEBUG] Creando canal: {channel_name} en categoría: {category.name}")
+            new_channel = await guild.create_text_channel(
+                name=channel_name,
+                category=category,
+                overwrites=overwrites
             )
-            # Usar la función get_help_message del módulo helpers
-            help_content = get_help_message(self.bot.commands)
-            await channel.send(welcome_message + help_content)
-        else:
-            print(f"Advertencia: No se encontró el canal con ID {config.NUEVO_INGRESO_CHANNEL_ID}. La bienvenida automática no funcionará.")
+            print(f"[DEBUG] Canal creado: {new_channel.name} (ID: {new_channel.id})")
+            welcome_message = (
+                f"Holaa {member.mention} ✨ !\n\n"
+                f"Con todo el {neuro_team.mention} te damos la bienvenida a tu Chat Personal!🙌 \n"
+                "En este canal vas a poder conversar con todos los especialistas de Neurocogniciones y además te podremos dar un seguimiento mucho más personalizado!✅ \n\n"
+                "Estamos para todo por aquí, literalmente cualquier duda, feedback, dificultad o barrera que se te presente, nos lo comunicas por aquí y nosotros estaremos al pendiente.🧐 \n\n"
+                "➡️ Puedes usar el @ para mencionar a cualquier miembro, eso ayuda porque nos llega la notificación de que nos etiquetaron!💕"
+            )
+            await new_channel.send(welcome_message)
+            print("[DEBUG] Mensaje de bienvenida enviado correctamente.")
+        except discord.Forbidden as e:
+            print(f"Error de permisos al crear o enviar mensajes en el canal de bienvenida: {e}")
+        except Exception as e:
+            print(f"Ha ocurrido un error al crear el canal de bienvenida: {e}")
 
 # La función setup es necesaria para que Discord.py cargue el cog
 async def setup(bot):
