@@ -27,7 +27,9 @@ class Events(commands.Cog):
         Se dispara cuando un nuevo miembro se une al servidor.
         Crea un nuevo canal privado para el miembro y le da la bienvenida.
         """
+        print(f"[DEBUG] Nuevo miembro detectado: {member} (ID: {member.id})")
         if member.bot:
+            print("[DEBUG] El miembro es un bot, no se crea canal.")
             return
 
         guild = member.guild
@@ -35,12 +37,16 @@ class Events(commands.Cog):
         role_id = config.ATENCION_AL_CLIENTE_ROLE_ID
         neuro_team = config.NEURO_TEAM_ROLE_ID
 
+        print(f"[DEBUG] category_id: {category_id}, role_id: {role_id}, neuro_team: {neuro_team}")
+
         if not all([category_id, role_id]):
             print("Advertencia: La categoría de nuevo ingreso o el rol de atención al cliente no están configurados.")
             return
 
         category = guild.get_channel(category_id)
         atencion_role = guild.get_role(role_id)
+
+        print(f"[DEBUG] category: {category}, atencion_role: {atencion_role}")
 
         if not category or not atencion_role:
             print("Advertencia: No se pudo encontrar la categoría o el rol especificado.")
@@ -55,11 +61,13 @@ class Events(commands.Cog):
 
         channel_name = f"{member.name}"
         try:
+            print(f"[DEBUG] Creando canal: {channel_name} en categoría: {category.name}")
             new_channel = await guild.create_text_channel(
                 name=channel_name,
                 category=category,
                 overwrites=overwrites
             )
+            print(f"[DEBUG] Canal creado: {new_channel.name} (ID: {new_channel.id})")
             welcome_message = (
                 f"Holaa {member.mention} ✨ !\n\n"
                 f"Con todo el {neuro_team.mention} te damos la bienvenida a tu Chat Personal!🙌 \n"
@@ -68,6 +76,7 @@ class Events(commands.Cog):
                 "➡️ Puedes usar el @ para mencionar a cualquier miembro, eso ayuda porque nos llega la notificación de que nos etiquetaron!💕"
             )
             await new_channel.send(welcome_message)
+            print("[DEBUG] Mensaje de bienvenida enviado correctamente.")
         except discord.Forbidden as e:
             print(f"Error de permisos al crear o enviar mensajes en el canal de bienvenida: {e}")
         except Exception as e:
