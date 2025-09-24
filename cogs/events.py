@@ -44,18 +44,17 @@ class Events(commands.Cog):
             return
 
         category = guild.get_channel(category_id)
-        atencion_role = guild.get_role(role_id)
+        #atencion_role = guild.get_role(role_id)
 
-        print(f"[DEBUG] category: {category}, atencion_role: {atencion_role}")
+        print(f"[DEBUG] category: {category}")
 
-        if not category or not atencion_role:
+        if not category:
             print("Advertencia: No se pudo encontrar la categoría o el rol especificado.")
             return
 
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             member: discord.PermissionOverwrite(read_messages=True),
-            atencion_role: discord.PermissionOverwrite(read_messages=True),
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
         }
 
