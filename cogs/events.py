@@ -68,7 +68,7 @@ class Events(commands.Cog):
             )
             print(f"[DEBUG] Canal creado: {new_channel.name} (ID: {new_channel.id})")
             welcome_message = (
-                f"Holaa @{member} ✨ !\n\n"
+                f"Holaa {member.id.mention} ✨ !\n\n"
                 f"Con todo el {neuro_team.mention} te damos la bienvenida a tu Chat Personal!🙌 \n"
                 "En este canal vas a poder conversar con todos los especialistas de Neurocogniciones y además te podremos dar un seguimiento mucho más personalizado!✅ \n\n"
                 "Estamos para todo por aquí, literalmente cualquier duda, feedback, dificultad o barrera que se te presente, nos lo comunicas por aquí y nosotros estaremos al pendiente.🧐 \n\n"
