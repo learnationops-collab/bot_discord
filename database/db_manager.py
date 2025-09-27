@@ -102,7 +102,7 @@ class DBManager:
                         print(f"ADVERTENCIA: No se pudo convertir el ID del canal '{canal_id_str}' a un número para la página '{page['id']}'.")
             return messages
         except Exception as e:
-            print(f"Error al obtener mensajes programados de Notion: {e}")
+            #print(f"Error al obtener mensajes programados de Notion: {e}")
             return []
 
     def mark_message_as_sent(self, page_id: str):
