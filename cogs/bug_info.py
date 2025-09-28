@@ -65,7 +65,9 @@ class BugInfo(commands.Cog):
         # Enviar el reporte al canal de bugs oficial y al canal privado
         bug_channel = self.bot.get_channel(config.BUGS_CHANNEL_ID)
         if bug_channel:
-            await bug_channel.send(f"Reporte de {member.mention} para el equipo de <@&{config.OPERECIONES_ROLES_ID}>:", embed=embed)
+            report_message = await bug_channel.send(f"Reporte de {member.mention} para el equipo de <@&{config.OPERECIONES_ROLES_ID}>:", embed=embed)
+            # Guardar el ID del mensaje en el topic del canal
+            await channel.edit(topic=f"ID del reporte de bug: {report_message.id}")
             await channel.send("✅ ¡Reporte enviado! El equipo de Operaciones ha sido notificado en el canal oficial de bugs y se comunicará contigo por este medio.")
         else:
             await channel.send(f"✅ ¡Reporte enviado! No se pudo enviar al canal oficial de bugs (ID no encontrado), pero el equipo de <@&{config.OPERECIONES_ROLES_ID}> ha sido notificado.")
@@ -98,6 +100,21 @@ class BugInfo(commands.Cog):
                 return
 
         # Compilar el reporte de la solución
+        plataforma = "No especificada"
+        if channel.topic and "ID del reporte de bug: " in channel.topic:
+            try:
+                report_id = int(channel.topic.split("ID del reporte de bug: ")[1])
+                bug_channel = self.bot.get_channel(config.BUGS_CHANNEL_ID)
+                if bug_channel:
+                    report_message = await bug_channel.fetch_message(report_id)
+                    if report_message.embeds:
+                        for field in report_message.embeds[0].fields:
+                            if field.name == "Plataforma":
+                                plataforma = field.value
+                                break
+            except (ValueError, discord.NotFound, discord.Forbidden):
+                pass
+
         embed = discord.Embed(
             title="✅ Bug Resuelto",
             description=f"Solución documentada por {member.mention}.",
@@ -106,6 +123,7 @@ class BugInfo(commands.Cog):
         if member.avatar:
             embed.set_thumbnail(url=member.avatar.url)
         
+        embed.add_field(name="Plataforma", value=plataforma, inline=False)
         embed.add_field(name="Solución Final", value=answers.get("answer_1", "N/A"), inline=False)
         embed.add_field(name="Detalles: ", value=answers.get("answer_2", "N/A"), inline=False)
         embed.add_field(name="Información a tener en cuenta", value=answers.get("answer_3", "N/A"), inline=False)
