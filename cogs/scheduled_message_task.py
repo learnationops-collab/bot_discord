@@ -32,7 +32,7 @@ class ScheduledMessageTask(commands.Cog):
             if not messages_to_send:
                 return
 
-            #print(f"\nSe encontraron {len(messages_to_send)} mensajes activos y pendientes.")
+            print(f"\nSe encontraron {len(messages_to_send)} mensajes activos y pendientes.")
 
             for msg in messages_to_send:
                 try:
