@@ -39,17 +39,18 @@ class Events(commands.Cog):
 
         print(f"[DEBUG] category_id: {category_id}, role_id: {role_id}, neuro_team: {neuro_team}")
 
-        if not all([category_id, role_id]):
-            print("Advertencia: La categoría de nuevo ingreso o el rol de atención al cliente no están configurados.")
+        if not all([category_id, role_id, neuro_team]):
+            print("Advertencia: La categoría de nuevo ingreso, el rol de atención al cliente o el rol de neuro team no están configurados.")
             return
 
         category = guild.get_channel(category_id)
         atencion_role = guild.get_role(role_id)
+        neuro_team_role = guild.get_role(neuro_team)
 
-        print(f"[DEBUG] category: {category}, atencion_role: {atencion_role}")
+        print(f"[DEBUG] category: {category}, atencion_role: {atencion_role}, neuro_team_role: {neuro_team_role}")
 
-        if not category or not atencion_role:
-            print("Advertencia: No se pudo encontrar la categoría o el rol especificado.")
+        if not category or not atencion_role or not neuro_team_role:
+            print("Advertencia: No se pudo encontrar la categoría o los roles especificados.")
             return
 
         overwrites = {
@@ -70,7 +71,7 @@ class Events(commands.Cog):
             print(f"[DEBUG] Canal creado: {new_channel.name} (ID: {new_channel.id})")
             welcome_message = (
                 f"Holaa {member.mention} ✨ !\n\n"
-                f"Con todo el {neuro_team.mention} te damos la bienvenida a tu Chat Personal!🙌 \n"
+                f"Con todo el {neuro_team_role.mention} te damos la bienvenida a tu Chat Personal!🙌 \n"
                 "En este canal vas a poder conversar con todos los especialistas de Neurocogniciones y además te podremos dar un seguimiento mucho más personalizado!✅ \n\n"
                 "Estamos para todo por aquí, literalmente cualquier duda, feedback, dificultad o barrera que se te presente, nos lo comunicas por aquí y nosotros estaremos al pendiente.🧐 \n\n"
                 "➡️ Puedes usar el @ para mencionar a cualquier miembro, eso ayuda porque nos llega la notificación de que nos etiquetaron!💕"
