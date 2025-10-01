@@ -44,6 +44,7 @@ class Events(commands.Cog):
             return
 
         category = guild.get_channel(category_id)
+
         atencion_role = guild.get_role(role_id)
         neuro_team_role = guild.get_role(neuro_team)
 
@@ -51,12 +52,12 @@ class Events(commands.Cog):
 
         if not category or not atencion_role or not neuro_team_role:
             print("Advertencia: No se pudo encontrar la categoría o los roles especificados.")
+
             return
 
         overwrites = {
             guild.default_role: discord.PermissionOverwrite(read_messages=False),
             member: discord.PermissionOverwrite(read_messages=True),
-            atencion_role: discord.PermissionOverwrite(read_messages=True),
             guild.me: discord.PermissionOverwrite(read_messages=True, send_messages=True)
         }
 
@@ -70,8 +71,10 @@ class Events(commands.Cog):
             )
             print(f"[DEBUG] Canal creado: {new_channel.name} (ID: {new_channel.id})")
             welcome_message = (
+
                 f"Holaa {member.mention} ✨ !\n\n"
                 f"Con todo el {neuro_team_role.mention} te damos la bienvenida a tu Chat Personal!🙌 \n"
+
                 "En este canal vas a poder conversar con todos los especialistas de Neurocogniciones y además te podremos dar un seguimiento mucho más personalizado!✅ \n\n"
                 "Estamos para todo por aquí, literalmente cualquier duda, feedback, dificultad o barrera que se te presente, nos lo comunicas por aquí y nosotros estaremos al pendiente.🧐 \n\n"
                 "➡️ Puedes usar el @ para mencionar a cualquier miembro, eso ayuda porque nos llega la notificación de que nos etiquetaron!💕"
