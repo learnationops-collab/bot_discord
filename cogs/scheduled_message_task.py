@@ -25,11 +25,13 @@ class ScheduledMessageTask(commands.Cog):
         """
         Tarea principal que se ejecuta en bucle para buscar y enviar mensajes.
         """
+        print("\nBuscando mensajes programados...")
         now_utc = datetime.datetime.now(self.timezone)
         
         try:
             messages_to_send = self.db_manager.get_scheduled_messages()
             if not messages_to_send:
+                print("No se encontraron mensajes pendientes.")
                 return
 
             print(f"\nSe encontraron {len(messages_to_send)} mensajes activos y pendientes.")
