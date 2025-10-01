@@ -119,7 +119,7 @@ class DBManager:
             print(f"Debug: Total de mensajes programados encontrados: {len(messages)}")
             return messages
         except Exception as e:
-            #print(f"Error al obtener mensajes programados de Notion: {e}")
+            print(f"Error al obtener mensajes programados de Notion: {e}")
             return []
 
     def mark_message_as_sent(self, page_id: str):
