@@ -43,13 +43,13 @@ class DBManager:
 
     def get_scheduled_messages(self):
         if not self.notion:
-            print("Debug: Cliente de Notion no inicializado, intentando conectar...")
+            #print("Debug: Cliente de Notion no inicializado, intentando conectar...")
             self.connect()
         if not self.notion:
-            print("Debug: No se pudo inicializar el cliente de Notion.")
+            #print("Debug: No se pudo inicializar el cliente de Notion.")
             return []
         if not self.notion_database_mensajes_id:
-            print("Debug: La variable de entorno NOTION_DATABASE_MENSAJES_ID no está configurada.")
+            #print("Debug: La variable de entorno NOTION_DATABASE_MENSAJES_ID no está configurada.")
             return []
 
         try:
@@ -66,18 +66,18 @@ class DBManager:
                     }
                 ]
             }
-            print(f"Debug: Ejecutando consulta en la base de datos de mensajes con filtro: {query_filter}")
+            #print(f"Debug: Ejecutando consulta en la base de datos de mensajes con filtro: {query_filter}")
             pages = collect_paginated_api(
                 self.notion.databases.query,
                 database_id=self.notion_database_mensajes_id,
                 filter=query_filter
             )
-            print(f"Debug: Se recibieron {len(pages)} páginas de la consulta.")
+            #print(f"Debug: Se recibieron {len(pages)} páginas de la consulta.")
 
             messages = []
             for page in pages:
                 props = page.get("properties", {})
-                print(f"Debug: Procesando página con ID: {page.get('id')}, propiedades: {props.keys()}")
+                #print(f"Debug: Procesando página con ID: {page.get('id')}, propiedades: {props.keys()}")
 
                 cuerpo_prop = props.get("cuerpo", {})
                 cuerpo_content = []
@@ -86,19 +86,19 @@ class DBManager:
                 elif "rich_text" in cuerpo_prop:
                     cuerpo_content = cuerpo_prop.get("rich_text", [])
                 cuerpo = "".join([text.get("plain_text", "") for text in cuerpo_content])
-                print(f"Debug: Cuerpo extraído: '{cuerpo}'")
+                #print(f"Debug: Cuerpo extraído: '{cuerpo}'")
 
                 fecha_data = props.get("fecha", {}).get("date")
                 fecha = fecha_data.get("start") if fecha_data else None
-                print(f"Debug: Fecha extraída: '{fecha}'")
+                #print(f"Debug: Fecha extraída: '{fecha}'")
 
                 canal_rich_text = props.get("canal", {}).get("rich_text", [])
                 canal_id_str = "".join([text.get("plain_text", "") for text in canal_rich_text]).strip()
-                print(f"Debug: Canal ID extraído: '{canal_id_str}'")
+                #print(f"Debug: Canal ID extraído: '{canal_id_str}'")
 
                 frecuencia_data = props.get("frecuencia", {}).get("select")
                 frecuencia = frecuencia_data.get("name") if frecuencia_data else "unico" # Default a 'unico'
-                print(f"Debug: Frecuencia extraída: '{frecuencia}'")
+                #print(f"Debug: Frecuencia extraída: '{frecuencia}'")
 
                 if cuerpo and fecha and canal_id_str:
                     try:
@@ -110,13 +110,13 @@ class DBManager:
                             "canal_id": canal_id,
                             "frecuencia": frecuencia
                         })
-                        print(f"Debug: Mensaje agregado: {messages[-1]}")
+                        #print(f"Debug: Mensaje agregado: {messages[-1]}")
                     except ValueError:
                         print(f"ADVERTENCIA: No se pudo convertir el ID del canal '{canal_id_str}' a un número para la página '{page['id']}'.")
                 else:
                     print(f"Debug: Mensaje omitido por datos faltantes (cuerpo: {cuerpo}, fecha: {fecha}, canal_id_str: {canal_id_str}) en la página '{page.get('id')}'.")
 
-            print(f"Debug: Total de mensajes programados encontrados: {len(messages)}")
+            #print(f"Debug: Total de mensajes programados encontrados: {len(messages)}")
             return messages
         except Exception as e:
             print(f"Error al obtener mensajes programados de Notion: {e}")
@@ -132,10 +132,10 @@ class DBManager:
                 page_id=page_id,
                 properties={"enviado": {"checkbox": True}}
             )
-            print(f"Mensaje '{page_id}' marcado como enviado.")
+            #print(f"Mensaje '{page_id}' marcado como enviado.")
             return True
         except Exception as e:
-            print(f"Error al marcar el mensaje '{page_id}' como enviado: {e}")
+            #print(f"Error al marcar el mensaje '{page_id}' como enviado: {e}")
             return False
 
     def reschedule_message(self, page_id: str, new_date: datetime.datetime):
@@ -153,10 +153,10 @@ class DBManager:
                     "enviado": {"checkbox": False} # Desmarcar para el próximo ciclo
                 }
             )
-            print(f"Mensaje '{page_id}' reprogramado para {new_date_iso}.")
+            #print(f"Mensaje '{page_id}' reprogramado para {new_date_iso}.")
             return True
         except Exception as e:
-            print(f"Error al reprogramar el mensaje '{page_id}': {e}")
+            #print(f"Error al reprogramar el mensaje '{page_id}': {e}")
             return False
 
     def insert_resource(self, resource_name: str, link: str, category: str, difficulty: str, subcategory: str = None):
