@@ -1,6 +1,6 @@
 # cogs/scheduled_message_task.py
 
-import discord
+import discord, discord.errors
 from discord.ext import commands, tasks
 import datetime
 import pytz
@@ -25,48 +25,57 @@ class ScheduledMessageTask(commands.Cog):
         """
         Tarea principal que se ejecuta en bucle para buscar y enviar mensajes.
         """
-        print("\nBuscando mensajes programados...")
+        #print("\nBuscando mensajes programados...")
         now_utc = datetime.datetime.now(self.timezone)
         
         try:
             messages_to_send = self.db_manager.get_scheduled_messages()
             if not messages_to_send:
-                print("No se encontraron mensajes pendientes.")
+                #print("No se encontraron mensajes pendientes.")
                 return
 
-            print(f"\nSe encontraron {len(messages_to_send)} mensajes activos y pendientes.")
+            #print(f"\nSe encontraron {len(messages_to_send)} mensajes activos y pendientes.")
 
             for msg in messages_to_send:
                 try:
                     scheduled_time_aware = datetime.datetime.fromisoformat(msg['fecha'])
 
                     if now_utc >= scheduled_time_aware:
-                        print(f"  - Procesando mensaje '{msg['page_id']}' para el canal {msg['canal_id']}")
+                        #print(f"  - Procesando mensaje '{msg['page_id']}' para el canal {msg['canal_id']}")
                         channel = self.bot.get_channel(msg['canal_id'])
                         if channel:
-                            await channel.send(msg['cuerpo'])
-                            print(f"    ✅ Mensaje enviado al canal '{channel.name}'.")
-                            
-                            # --- Lógica de Frecuencia ---
-                            frecuencia = msg.get("frecuencia", "unico").lower()
-                            page_id = msg['page_id']
+                            try:
+                                await channel.send(msg['cuerpo'])
+                                #print(f"    ✅ Mensaje enviado al canal '{channel.name}'.")
+                                
+                                # --- Lógica de Frecuencia ---
+                                frecuencia = msg.get("frecuencia", "unico").lower()
+                                page_id = msg['page_id']
 
-                            if frecuencia == "diario":
-                                new_date = scheduled_time_aware + datetime.timedelta(days=1)
-                                print(f"    - Frecuencia: Diario. Reprogramando para {new_date.strftime('%Y-%m-%d')}")
-                                self.db_manager.reschedule_message(page_id, new_date)
+                                if frecuencia == "diario":
+                                    new_date = scheduled_time_aware + datetime.timedelta(days=1)
+                                    #print(f"    - Frecuencia: Diario. Reprogramando para {new_date.strftime('%Y-%m-%d')}")
+                                    self.db_manager.reschedule_message(page_id, new_date)
 
-                            elif frecuencia == "semanal":
-                                new_date = scheduled_time_aware + datetime.timedelta(weeks=1)
-                                print(f"    - Frecuencia: Semanal. Reprogramando para {new_date.strftime('%Y-%m-%d')}")
-                                self.db_manager.reschedule_message(page_id, new_date)
+                                elif frecuencia == "semanal":
+                                    new_date = scheduled_time_aware + datetime.timedelta(weeks=1)
+                                    #print(f"    - Frecuencia: Semanal. Reprogramando para {new_date.strftime('%Y-%m-%d')}")
+                                    self.db_manager.reschedule_message(page_id, new_date)
 
-                            else: # "unico" o cualquier otro valor
-                                print("    - Frecuencia: Único. Marcando como enviado.")
-                                self.db_manager.mark_message_as_sent(page_id)
+                                else: # "unico" o cualquier otro valor
+                                    #print("    - Frecuencia: Único. Marcando como enviado.")
+                                    self.db_manager.mark_message_as_sent(page_id)
 
+                            except discord.errors.Forbidden:
+                                #print(f"    ❌ Error de permisos: No se pudo enviar el mensaje al canal '{channel.name}' (ID: {msg['canal_id']}).")
+                                #print("    - El bot no tiene los permisos necesarios en este canal.")
+                                #print("    - Marcando como enviado para no reintentar.")
+                                self.db_manager.mark_message_as_sent(msg['page_id'])
+                        
                         else:
-                            print(f"    ❌ Error: No se encontró el canal con ID {msg['canal_id']}.")
+                            #print(f"    ❌ Error: No se encontró el canal con ID {msg['canal_id']}.")
+                            #print("    - Marcando como enviado para no reintentar.")
+                            self.db_manager.mark_message_as_sent(msg['page_id'])
 
                 except Exception as e:
                     print(f"❌ Error procesando un mensaje individual (Page ID: {msg.get('page_id', 'N/A')}): {e}")
