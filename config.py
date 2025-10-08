@@ -66,6 +66,14 @@ GENERAL_CATEGORY_ID = int(os.getenv('GENERAL_CATEGORY_ID')) if os.getenv('GENERA
 # ID de la base de datos de Notion para los mensajes programados.
 NOTION_DATABASE_MENSAJES_ID = os.getenv('NOTION_DATABASE_MENSAJES_ID')
 
+# IDs de canales para seguimiento de actividad
+TEST_CHANNEL_ID = int(os.getenv('TEST_CHANNEL_ID')) if os.getenv('TEST_CHANNEL_ID') else None
+COWORKING_CHANNEL_ID = int(os.getenv('COWORKING_CHANNEL_ID')) if os.getenv('COWORKING_CHANNEL_ID') else None
+REUNIONES_CHANNEL_ID = int(os.getenv('REUNIONES_CHANNEL_ID')) if os.getenv('REUNIONES_CHANNEL_ID') else None
+
+# ID de la base de datos de Notion para el seguimiento de actividad
+NOTION_DATABASE_ACTIVIDAD_ID = os.getenv('NOTION_DATABASE_ACTIVIDAD_ID')
+
 
 # Diccionario para almacenar el estado de las conversaciones de "Hablar con un Humano"
 # Formato: {user_id: {'state': int, 'answers': [], 'channel_id': None, 'selected_human': None}}
@@ -112,6 +120,14 @@ def validate_env_variables():
         print("¡ADVERTENCIA! 'GENERAL_CATEGORY_ID' no está definido. La creación de canales generales podría fallar.")
     if NOTION_DATABASE_MENSAJES_ID is None:
         print("¡ADVERTENCIA! 'NOTION_DATABASE_MENSAJES_ID' no está definido. La funcionalidad de mensajes programados no funcionará.")
+    if TEST_CHANNEL_ID is None:
+        print("¡ADVERTENCIA! 'TEST_CHANNEL_ID' no está definido. El reporte de actividad no funcionará.")
+    if COWORKING_CHANNEL_ID is None:
+        print("¡ADVERTENCIA! 'COWORKING_CHANNEL_ID' no está definido. El seguimiento de actividad en coworking no funcionará.")
+    if REUNIONES_CHANNEL_ID is None:
+        print("¡ADVERTENCIA! 'REUNIONES_CHANNEL_ID' no está definido. El seguimiento de actividad en reuniones no funcionará.")
+    if NOTION_DATABASE_ACTIVIDAD_ID is None:
+        print("¡ADVERTENCIA! 'NOTION_DATABASE_ACTIVIDAD_ID' no está definido. El registro de actividad en Notion no funcionará.")
 
 # Llama a la función de validación al cargar el módulo
 validate_env_variables()

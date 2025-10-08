@@ -3,6 +3,7 @@
 import discord
 from discord.ext import commands
 import config # Importa la configuración desde el módulo config
+from utils import notion_utils # Importa el módulo de utilidades de Notion
 
 class Events(commands.Cog):
     """
@@ -10,6 +11,10 @@ class Events(commands.Cog):
     """
     def __init__(self, bot):
         self.bot = bot
+        self.tracked_channels = {
+            config.COWORKING_CHANNEL_ID,
+            config.REUNIONES_CHANNEL_ID,
+        }
 
     @commands.Cog.listener()
     async def on_ready(self):
@@ -85,6 +90,33 @@ class Events(commands.Cog):
             print(f"Error de permisos al crear o enviar mensajes en el canal de bienvenida: {e}")
         except Exception as e:
             print(f"Ha ocurrido un error al crear el canal de bienvenida: {e}")
+
+    @commands.Cog.listener()
+    async def on_voice_state_update(self, member, before, after):
+        """
+        Se dispara cuando el estado de voz de un miembro cambia.
+        Registra la entrada y salida de los canales de voz rastreados.
+        """
+        if member.bot:
+            return
+
+        # User joins a voice channel
+        if before.channel is None and after.channel is not None:
+            if after.channel.id in self.tracked_channels:
+                notion_utils.add_activity_log(
+                    id_member=str(member.id),
+                    entrada=True,
+                    canal=after.channel.name
+                )
+
+        # User leaves a voice channel
+        if before.channel is not None and after.channel is None:
+            if before.channel.id in self.tracked_channels:
+                notion_utils.add_activity_log(
+                    id_member=str(member.id),
+                    entrada=False,
+                    canal=before.channel.name
+                )
 
 # La función setup es necesaria para que Discord.py cargue el cog
 async def setup(bot):
