@@ -5,7 +5,7 @@ from datetime import datetime
 import config
 
 # Initialize Notion client
-notion = Client(auth=os.getenv("NOTION_API_KEY"))
+notion = Client(auth=os.getenv("NOTION_TOKEN"))
 
 def add_activity_log(id_member: str, entrada: bool, canal: str):
     """
