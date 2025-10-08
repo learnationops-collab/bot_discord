@@ -5,6 +5,9 @@ from discord.ext import commands, tasks
 import datetime
 import pytz
 from database.db_manager import DBManager
+from utils import notion_utils
+import config
+from collections import defaultdict
 
 class ScheduledMessageTask(commands.Cog):
     """
@@ -16,9 +19,11 @@ class ScheduledMessageTask(commands.Cog):
         self.db_manager = DBManager()
         self.timezone = pytz.timezone('UTC')
         self.send_scheduled_messages.start()
+        self.daily_activity_report.start()
 
     def cog_unload(self):
         self.send_scheduled_messages.cancel()
+        self.daily_activity_report.cancel()
 
     @tasks.loop(seconds=60)  # Revisa cada 60 segundos
     async def send_scheduled_messages(self):
@@ -82,6 +87,61 @@ class ScheduledMessageTask(commands.Cog):
 
         except Exception as e:
             print(f"❌ Error general en la tarea de envío de mensajes: {e}")
+
+    @tasks.loop(time=datetime.time(hour=22, minute=0, tzinfo=pytz.timezone('America/Argentina/Buenos_Aires')))
+    async def daily_activity_report(self):
+        """
+        Genera y envía un reporte diario de actividad en los canales de voz.
+        """
+        print("Generando reporte diario de actividad...")
+        logs = notion_utils.get_activity_logs_for_today()
+        if not logs:
+            print("No hay actividad para reportar hoy.")
+            return
+
+        user_time = defaultdict(lambda: defaultdict(datetime.timedelta))
+        user_connections = {}
+
+        for log in sorted(logs, key=lambda x: x['properties']['fecha_hora']['date']['start']):
+            props = log['properties']
+            user_id = props['id_member']['title'][0]['text']['content']
+            channel_name = props['canal']['rich_text'][0]['text']['content']
+            timestamp = datetime.datetime.fromisoformat(props['fecha_hora']['date']['start'])
+            is_entry = props['entrada']['checkbox']
+
+            if is_entry:
+                user_connections[(user_id, channel_name)] = timestamp
+            elif (user_id, channel_name) in user_connections:
+                connection_time = user_connections.pop((user_id, channel_name))
+                duration = timestamp - connection_time
+                user_time[user_id][channel_name] += duration
+
+        report_channel = self.bot.get_channel(config.TEST_CHANNEL_ID)
+        if not report_channel:
+            print(f"Error: No se encontró el canal de reporte con ID {config.TEST_CHANNEL_ID}")
+            return
+
+        embed = discord.Embed(title="Reporte de Actividad Diario", color=discord.Color.blue())
+        for user_id, channels in user_time.items():
+            try:
+                member = await self.bot.fetch_user(int(user_id))
+                user_name = member.display_name
+            except discord.NotFound:
+                user_name = f"Usuario: <@{user_id}>"
+            
+            report_lines = []
+            for channel, total_time in channels.items():
+                hours, remainder = divmod(total_time.total_seconds(), 3600)
+                minutes, _ = divmod(remainder, 60)
+                report_lines.append(f"- **{channel}**: {int(hours)}h {int(minutes)}m")
+            
+            if report_lines:
+                embed.add_field(name=user_name, value="\n".join(report_lines), inline=False)
+
+        if embed.fields:
+            await report_channel.send(embed=embed)
+        else:
+            await report_channel.send("No se registró actividad medible hoy.")
 
     @send_scheduled_messages.before_loop
     async def before_task_starts(self):
