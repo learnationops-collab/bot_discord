@@ -39,25 +39,21 @@ class Events(commands.Cog):
 
         guild = member.guild
         category_id = config.NUEVO_INGRESO_CATEGORY_ID
-        role_id = config.ATENCION_AL_CLIENTE_ROLE_ID
         neuro_team = config.NEURO_TEAM_ROLE_ID
 
-        print(f"[DEBUG] category_id: {category_id}, role_id: {role_id}, neuro_team: {neuro_team}")
+        print(f"[DEBUG] category_id: {category_id}, neuro_team: {neuro_team}")
 
-        if not all([category_id, role_id, neuro_team]):
+        if not all([category_id, neuro_team]):
             print("Advertencia: La categoría de nuevo ingreso, el rol de atención al cliente o el rol de neuro team no están configurados.")
             return
 
         category = guild.get_channel(category_id)
-
-        atencion_role = guild.get_role(role_id)
         neuro_team_role = guild.get_role(neuro_team)
 
-        print(f"[DEBUG] category: {category}, atencion_role: {atencion_role}, neuro_team_role: {neuro_team_role}")
+        print(f"[DEBUG] category: {category}, neuro_team_role: {neuro_team_role}")
 
-        if not category or not atencion_role or not neuro_team_role:
+        if not category or not neuro_team_role:
             print("Advertencia: No se pudo encontrar la categoría o los roles especificados.")
-
             return
 
         overwrites = {

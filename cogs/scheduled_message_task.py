@@ -111,9 +111,28 @@ class ScheduledMessageTask(commands.Cog):
 
             if is_entry:
                 user_connections[(user_id, channel_name)] = timestamp
-            elif (user_id, channel_name) in user_connections:
-                connection_time = user_connections.pop((user_id, channel_name))
-                duration = timestamp - connection_time
+            else:  # Este es un registro de salida
+                if (user_id, channel_name) in user_connections:
+                    # Sesión iniciada y finalizada dentro del periodo de logs obtenidos
+                    connection_time = user_connections.pop((user_id, channel_name))
+                    duration = timestamp - connection_time
+                    user_time[user_id][channel_name] += duration
+                else:
+                    # Probablemente la sesión comenzó antes de hoy. Calcular duración desde el inicio del día.
+                    tz = timestamp.tzinfo
+                    start_of_day = datetime.datetime.combine(timestamp.date(), datetime.time.min, tzinfo=tz)
+                    duration = timestamp - start_of_day
+                    user_time[user_id][channel_name] += duration
+
+        # Después de procesar los logs, contabilizar sesiones que siguen abiertas
+        if user_connections:
+            # Usar un timestamp de referencia para manejar correctamente las zonas horarias
+            ref_timestamp = next(iter(user_connections.values()))
+            tz = ref_timestamp.tzinfo
+            now = datetime.datetime.now(tz)
+
+            for (user_id, channel_name), connection_time in user_connections.items():
+                duration = now - connection_time
                 user_time[user_id][channel_name] += duration
 
         report_channel = self.bot.get_channel(config.TEST_CHANNEL_ID)
