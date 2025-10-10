@@ -91,49 +91,36 @@ class ScheduledMessageTask(commands.Cog):
     @tasks.loop(time=datetime.time(hour=23, minute=50, tzinfo=pytz.timezone('America/Argentina/Buenos_Aires')))
     async def daily_activity_report(self):
         """
-        Genera y envía un reporte diario de actividad en los canales de voz.
+        Genera y envía un reporte diario de actividad en los canales de voz, sumando el tiempo de conexión
+        basado en los registros de salida del día.
         """
         print("Generando reporte diario de actividad...")
-        logs = notion_utils.get_activity_logs_for_today()
-        if not logs:
-            print("No hay actividad para reportar hoy.")
+        exit_logs = notion_utils.get_exit_logs_for_today()
+
+        if not exit_logs:
+            print("No hay actividad de salida para reportar hoy.")
+            report_channel = self.bot.get_channel(config.TEST_CHANNEL_ID)
+            if report_channel:
+                await report_channel.send("No se registraron nuevas conexiones hoy.")
             return
 
         user_time = defaultdict(lambda: defaultdict(datetime.timedelta))
-        user_connections = {}
 
-        for log in sorted(logs, key=lambda x: x['properties']['fecha_hora']['date']['start']):
-            props = log['properties']
-            user_id = props['id_member']['title'][0]['text']['content']
-            channel_name = props['canal']['rich_text'][0]['text']['content']
-            timestamp = datetime.datetime.fromisoformat(props['fecha_hora']['date']['start'])
-            is_entry = props['entrada']['checkbox']
+        for log in exit_logs:
+            props = log.get('properties', {})
+            user_id_prop = props.get('id_member', {}).get('title', [])
+            channel_name_prop = props.get('canal', {}).get('rich_text', [])
+            duration_prop = props.get('tiempo_coneccion', {}).get('number')
 
-            if is_entry:
-                user_connections[(user_id, channel_name)] = timestamp
-            else:  # Este es un registro de salida
-                if (user_id, channel_name) in user_connections:
-                    # Sesión iniciada y finalizada dentro del periodo de logs obtenidos
-                    connection_time = user_connections.pop((user_id, channel_name))
-                    duration = timestamp - connection_time
-                    user_time[user_id][channel_name] += duration
-                else:
-                    # Probablemente la sesión comenzó antes de hoy. Calcular duración desde el inicio del día.
-                    tz = timestamp.tzinfo
-                    start_of_day = datetime.datetime.combine(timestamp.date(), datetime.time.min, tzinfo=tz)
-                    duration = timestamp - start_of_day
-                    user_time[user_id][channel_name] += duration
+            if not all([user_id_prop, channel_name_prop, duration_prop is not None]):
+                continue
 
-        # Después de procesar los logs, contabilizar sesiones que siguen abiertas
-        if user_connections:
-            # Usar un timestamp de referencia para manejar correctamente las zonas horarias
-            ref_timestamp = next(iter(user_connections.values()))
-            tz = ref_timestamp.tzinfo
-            now = datetime.datetime.now(tz)
+            user_id = user_id_prop[0].get('text', {}).get('content')
+            channel_name = channel_name_prop[0].get('text', {}).get('content')
+            duration_seconds = duration_prop
 
-            for (user_id, channel_name), connection_time in user_connections.items():
-                duration = now - connection_time
-                user_time[user_id][channel_name] += duration
+            if user_id and channel_name:
+                user_time[user_id][channel_name] += datetime.timedelta(seconds=duration_seconds)
 
         report_channel = self.bot.get_channel(config.TEST_CHANNEL_ID)
         if not report_channel:
@@ -145,9 +132,9 @@ class ScheduledMessageTask(commands.Cog):
             try:
                 member = await self.bot.fetch_user(int(user_id))
                 user_name = member.display_name
-            except discord.NotFound:
-                user_name = f"Usuario: <@{user_id}>"
-            
+            except (discord.NotFound, ValueError):
+                user_name = f"Usuario Desconocido ({user_id})"
+
             report_lines = []
             for channel, total_time in channels.items():
                 hours, remainder = divmod(total_time.total_seconds(), 3600)
