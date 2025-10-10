@@ -122,8 +122,9 @@ class Events(commands.Cog):
                 if last_connection:
                     connection_time_str = last_connection['properties']['fecha_hora']['date']['start']
                     print(f"[DEBUG] Cadena de tiempo de conexión: {connection_time_str}")
-                    connection_time = datetime.fromisoformat(connection_time_str)
-                    tiempo_coneccion = int((datetime.now() - connection_time).total_seconds())
+                    connection_time_aware = datetime.fromisoformat(connection_time_str)
+                    connection_time_naive = connection_time_aware.replace(tzinfo=None)
+                    tiempo_coneccion = int((datetime.now() - connection_time_naive).total_seconds())
                     print(f"[DEBUG] Tiempo de conexión calculado: {tiempo_coneccion} segundos")
 
                 notion_utils.add_activity_log(
