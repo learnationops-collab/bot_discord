@@ -90,51 +90,51 @@ class Events(commands.Cog):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        print(f"[DEBUG] on_voice_state_update triggered for member: {member.name}")
-        print(f"[DEBUG] Before channel: {before.channel}, After channel: {after.channel}")
+        print(f"[DEBUG] Evento on_voice_state_update para el miembro: {member.display_name}")
+        print(f"[DEBUG] Canal anterior: {before.channel}, Canal actual: {after.channel}")
 
         if member.bot:
-            print("[DEBUG] Member is a bot, ignoring.")
+            print("[DEBUG] El miembro es un bot, se ignora.")
             return
 
-        # User joins a voice channel
+        # El usuario se une a un canal de voz
         if before.channel is None and after.channel is not None:
-            print(f"[DEBUG] User {member.name} joined voice channel {after.channel.name}")
+            print(f"[DEBUG] El usuario {member.display_name} se unió al canal de voz {after.channel.name}")
             if after.channel.id in self.tracked_channels:
-                print(f"[DEBUG] Channel {after.channel.name} is a tracked channel.")
+                print(f"[DEBUG] El canal {after.channel.name} es un canal rastreado.")
                 notion_utils.add_activity_log(
                     id_member=str(member.id),
-                    nombre=member.name,
+                    nombre=member.display_name,
                     entrada=True,
                     canal=after.channel.name
                 )
             else:
-                print(f"[DEBUG] Channel {after.channel.name} is not a tracked channel.")
+                print(f"[DEBUG] El canal {after.channel.name} no es un canal rastreado.")
 
-        # User leaves a voice channel
+        # El usuario abandona un canal de voz
         if before.channel is not None and after.channel is None:
-            print(f"[DEBUG] User {member.name} left voice channel {before.channel.name}")
+            print(f"[DEBUG] El usuario {member.display_name} abandonó el canal de voz {before.channel.name}")
             if before.channel.id in self.tracked_channels:
-                print(f"[DEBUG] Channel {before.channel.name} is a tracked channel.")
+                print(f"[DEBUG] El canal {before.channel.name} es un canal rastreado.")
                 last_connection = notion_utils.find_last_connection(str(member.id), before.channel.name)
-                print(f"[DEBUG] Last connection found: {last_connection}")
+                print(f"[DEBUG] Última conexión encontrada: {last_connection}")
                 tiempo_coneccion = None
                 if last_connection:
                     connection_time_str = last_connection['properties']['fecha_hora']['date']['start']
-                    print(f"[DEBUG] Connection time string: {connection_time_str}")
+                    print(f"[DEBUG] Cadena de tiempo de conexión: {connection_time_str}")
                     connection_time = datetime.fromisoformat(connection_time_str)
                     tiempo_coneccion = int((datetime.now() - connection_time).total_seconds())
-                    print(f"[DEBUG] Calculated connection time: {tiempo_coneccion} seconds")
+                    print(f"[DEBUG] Tiempo de conexión calculado: {tiempo_coneccion} segundos")
 
                 notion_utils.add_activity_log(
                     id_member=str(member.id),
-                    nombre=member.name,
+                    nombre=member.display_name,
                     entrada=False,
                     canal=before.channel.name,
                     tiempo_coneccion=tiempo_coneccion
                 )
             else:
-                print(f"[DEBUG] Channel {before.channel.name} is not a tracked channel.")
+                print(f"[DEBUG] El canal {before.channel.name} no es un canal rastreado.")
 
 # La función setup es necesaria para que Discord.py cargue el cog
 async def setup(bot):
