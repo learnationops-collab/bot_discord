@@ -4,6 +4,7 @@ import discord
 from discord.ext import commands
 import config # Importa la configuración desde el módulo config
 from utils import notion_utils # Importa el módulo de utilidades de Notion
+from datetime import datetime
 
 class Events(commands.Cog):
     """
@@ -101,6 +102,7 @@ class Events(commands.Cog):
             if after.channel.id in self.tracked_channels:
                 notion_utils.add_activity_log(
                     id_member=str(member.id),
+                    nombre=member.name,
                     entrada=True,
                     canal=after.channel.name
                 )
@@ -108,10 +110,19 @@ class Events(commands.Cog):
         # User leaves a voice channel
         if before.channel is not None and after.channel is None:
             if before.channel.id in self.tracked_channels:
+                last_connection = notion_utils.find_last_connection(str(member.id), before.channel.name)
+                tiempo_coneccion = None
+                if last_connection:
+                    connection_time_str = last_connection['properties']['fecha_hora']['date']['start']
+                    connection_time = datetime.fromisoformat(connection_time_str)
+                    tiempo_coneccion = int((datetime.now() - connection_time).total_seconds())
+
                 notion_utils.add_activity_log(
                     id_member=str(member.id),
+                    nombre=member.name,
                     entrada=False,
-                    canal=before.channel.name
+                    canal=before.channel.name,
+                    tiempo_coneccion=tiempo_coneccion
                 )
 
 # La función setup es necesaria para que Discord.py cargue el cog
