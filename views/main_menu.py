@@ -267,18 +267,18 @@ class CategorySelectionView(discord.ui.View):
 
             # Obtener subcategorías para la dificultad y categoría seleccionadas
             subcategories = db_manager.get_distinct_subcategories(difficulty=self.difficulty, category=selected_category)
-            print(f"Subcategorías encontradas para '{selected_category}': {subcategories}") # DEBUG: Para ver qué devuelve la DB
+            #print(f"Subcategorías encontradas para '{selected_category}': {subcategories}") # DEBUG: Para ver qué devuelve la DB
             if subcategories:
                 subcategory_view = SubcategorySelectionView(self.bot, self.difficulty, selected_category)
                 await interaction.followup.send("Por favor, selecciona una subcategoría o ver todos:", view=subcategory_view)
                 subcategory_view.message = interaction.message # Asignar el mensaje para timeout
-                print("Subcategorías encontradas, enviando vista de selección.")
+                #print("Subcategorías encontradas, enviando vista de selección.")
             else:
                 # Si no hay subcategorías, ir directamente a mostrar recursos de la categoría
                 resources = db_manager.get_resources(category=selected_category, difficulty=self.difficulty)
                 resource_view = ResourceDisplayView(resources, self.difficulty, selected_category)
                 await resource_view.send_resources(interaction)
-                print("No se encontraron subcategorías, mostrando recursos directamente.")
+                #print("No se encontraron subcategorías, mostrando recursos directamente.")
             return False # No continuar con otros botones en esta interacción
 
         return True # Permitir que otros botones se procesen
@@ -319,7 +319,7 @@ class DifficultySelectionView(discord.ui.View):
             return
 
         difficulties = db_manager.get_distinct_difficulties()
-        print(f"Dificultades obtenidas de la DB: {difficulties}") # DEBUG: Para ver qué devuelve la DB
+        #print(f"Dificultades obtenidas de la DB: {difficulties}") # DEBUG: Para ver qué devuelve la DB
         
         if not difficulties:
             self.add_item(discord.ui.Button(label="No hay dificultades disponibles", style=discord.ButtonStyle.grey, disabled=True))
