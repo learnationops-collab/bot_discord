@@ -7,16 +7,7 @@ import config
 notion = Client(auth=os.getenv("NOTION_TOKEN"))
 
 def add_activity_log(id_member: str, nombre: str, entrada: bool, canal: str, tiempo_coneccion: int = None):
-    """
-    Agrega un nuevo registro de actividad a la base de datos de Notion.
-
-    Args:
-        id_member (str): El ID del miembro.
-        nombre (str): El nombre del miembro.
-        entrada (bool): True si el miembro se conecta, False si se desconecta.
-        canal (str): El nombre del canal.
-        tiempo_coneccion (int, optional): El tiempo de conexión en segundos. Defaults to None.
-    """
+    print(f"[DEBUG] add_activity_log llamada con: id_member={id_member}, nombre={nombre}, entrada={entrada}, canal={canal}, tiempo_coneccion={tiempo_coneccion}")
     properties = {
         "id_member": {"title": [{"text": {"content": id_member}}]},
         "nombre": {"rich_text": [{"text": {"content": nombre}}]},
@@ -27,38 +18,35 @@ def add_activity_log(id_member: str, nombre: str, entrada: bool, canal: str, tie
     if tiempo_coneccion is not None:
         properties["tiempo_coneccion"] = {"number": tiempo_coneccion}
 
+    print(f"[DEBUG] Propiedades para Notion: {properties}")
     try:
-        notion.pages.create(
+        response = notion.pages.create(
             parent={"database_id": config.NOTION_DATABASE_ACTIVIDAD_ID},
             properties=properties,
         )
+        print(f"[DEBUG] Respuesta de Notion API (add_activity_log): {response}")
     except Exception as e:
         print(f"Error al agregar el registro de actividad en Notion: {e}")
 
 def find_last_connection(id_member: str, canal: str):
-    """
-    Encuentra el último registro de conexión para un miembro en un canal específico.
-
-    Args:
-        id_member (str): El ID del miembro.
-        canal (str): El nombre del canal.
-
-    Returns:
-        dict: El objeto de página de Notion para el último registro de conexión, o None si no se encuentra.
-    """
+    print(f"[DEBUG] find_last_connection llamada con: id_member={id_member}, canal={canal}")
+    filter_params = {
+        "and": [
+            {"property": "id_member", "title": {"equals": id_member}},
+            {"property": "canal", "rich_text": {"equals": canal}},
+            {"property": "entrada", "checkbox": {"equals": True}},
+        ]
+    }
+    sort_params = [{"property": "fecha_hora", "direction": "descending"}]
+    print(f"[DEBUG] Parámetros de consulta para Notion: filter={filter_params}, sorts={sort_params}")
     try:
         response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
-            filter={
-                "and": [
-                    {"property": "id_member", "title": {"equals": id_member}},
-                    {"property": "canal", "rich_text": {"equals": canal}},
-                    {"property": "entrada", "checkbox": {"equals": True}},
-                ]
-            },
-            sorts=[{"property": "fecha_hora", "direction": "descending"}],
+            filter=filter_params,
+            sorts=sort_params,
             page_size=1,
         )
+        print(f"[DEBUG] Respuesta de Notion API (find_last_connection): {response}")
         results = response.get("results")
         if results:
             return results[0]
