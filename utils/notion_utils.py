@@ -7,7 +7,7 @@ import config
 notion = Client(auth=os.getenv("NOTION_TOKEN"))
 
 def add_activity_log(id_member: str, nombre: str, entrada: bool, canal: str, tiempo_coneccion: int = None):
-    print(f"[DEBUG] add_activity_log llamada con: id_member={id_member}, nombre={nombre}, entrada={entrada}, canal={canal}, tiempo_coneccion={tiempo_coneccion}")
+    #print(f"[DEBUG] add_activity_log llamada con: id_member={id_member}, nombre={nombre}, entrada={entrada}, canal={canal}, tiempo_coneccion={tiempo_coneccion}")
     properties = {
         "id_member": {"title": [{"text": {"content": id_member}}]},
         "nombre": {"rich_text": [{"text": {"content": nombre}}]},
@@ -18,18 +18,18 @@ def add_activity_log(id_member: str, nombre: str, entrada: bool, canal: str, tie
     if tiempo_coneccion is not None:
         properties["tiempo_coneccion"] = {"number": tiempo_coneccion}
 
-    print(f"[DEBUG] Propiedades para Notion: {properties}")
+    #print(f"[DEBUG] Propiedades para Notion: {properties}")
     try:
         response = notion.pages.create(
             parent={"database_id": config.NOTION_DATABASE_ACTIVIDAD_ID},
             properties=properties,
         )
-        print(f"[DEBUG] Respuesta de Notion API (add_activity_log): {response}")
+        #print(f"[DEBUG] Respuesta de Notion API (add_activity_log): {response}")
     except Exception as e:
         print(f"Error al agregar el registro de actividad en Notion: {e}")
 
 def find_last_connection(id_member: str, canal: str):
-    print(f"[DEBUG] find_last_connection llamada con: id_member={id_member}, canal={canal}")
+    #print(f"[DEBUG] find_last_connection llamada con: id_member={id_member}, canal={canal}")
     filter_params = {
         "and": [
             {"property": "id_member", "title": {"equals": id_member}},
@@ -38,7 +38,7 @@ def find_last_connection(id_member: str, canal: str):
         ]
     }
     sort_params = [{"property": "fecha_hora", "direction": "descending"}]
-    print(f"[DEBUG] Parámetros de consulta para Notion: filter={filter_params}, sorts={sort_params}")
+    #print(f"[DEBUG] Parámetros de consulta para Notion: filter={filter_params}, sorts={sort_params}")
     try:
         response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
@@ -46,7 +46,7 @@ def find_last_connection(id_member: str, canal: str):
             sorts=sort_params,
             page_size=1,
         )
-        print(f"[DEBUG] Respuesta de Notion API (find_last_connection): {response}")
+        #print(f"[DEBUG] Respuesta de Notion API (find_last_connection): {response}")
         results = response.get("results")
         if results:
             return results[0]

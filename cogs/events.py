@@ -90,42 +90,29 @@ class Events(commands.Cog):
 
     @commands.Cog.listener()
     async def on_voice_state_update(self, member, before, after):
-        print(f"[DEBUG] Evento on_voice_state_update para el miembro: {member.display_name}")
-        print(f"[DEBUG] Canal anterior: {before.channel}, Canal actual: {after.channel}")
-
         if member.bot:
-            print("[DEBUG] El miembro es un bot, se ignora.")
             return
 
         # El usuario se une a un canal de voz
         if before.channel is None and after.channel is not None:
-            print(f"[DEBUG] El usuario {member.display_name} se unió al canal de voz {after.channel.name}")
             if after.channel.id in self.tracked_channels:
-                print(f"[DEBUG] El canal {after.channel.name} es un canal rastreado.")
                 notion_utils.add_activity_log(
                     id_member=str(member.id),
                     nombre=member.display_name,
                     entrada=True,
                     canal=after.channel.name
                 )
-            else:
-                print(f"[DEBUG] El canal {after.channel.name} no es un canal rastreado.")
 
         # El usuario abandona un canal de voz
         if before.channel is not None and after.channel is None:
-            print(f"[DEBUG] El usuario {member.display_name} abandonó el canal de voz {before.channel.name}")
             if before.channel.id in self.tracked_channels:
-                print(f"[DEBUG] El canal {before.channel.name} es un canal rastreado.")
                 last_connection = notion_utils.find_last_connection(str(member.id), before.channel.name)
-                print(f"[DEBUG] Última conexión encontrada: {last_connection}")
                 tiempo_coneccion = None
                 if last_connection:
                     connection_time_str = last_connection['properties']['fecha_hora']['date']['start']
-                    print(f"[DEBUG] Cadena de tiempo de conexión: {connection_time_str}")
                     connection_time_aware = datetime.fromisoformat(connection_time_str)
                     connection_time_naive = connection_time_aware.replace(tzinfo=None)
                     tiempo_coneccion = int((datetime.now() - connection_time_naive).total_seconds())
-                    print(f"[DEBUG] Tiempo de conexión calculado: {tiempo_coneccion} segundos")
 
                 notion_utils.add_activity_log(
                     id_member=str(member.id),
@@ -134,8 +121,6 @@ class Events(commands.Cog):
                     canal=before.channel.name,
                     tiempo_coneccion=tiempo_coneccion
                 )
-            else:
-                print(f"[DEBUG] El canal {before.channel.name} no es un canal rastreado.")
 
 # La función setup es necesaria para que Discord.py cargue el cog
 async def setup(bot):
