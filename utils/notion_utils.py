@@ -4,17 +4,17 @@ from notion_client import Client
 from datetime import datetime
 import config
 
-# Initialize Notion client
+# Inicializa el cliente de Notion
 notion = Client(auth=os.getenv("NOTION_TOKEN"))
 
 def add_activity_log(id_member: str, entrada: bool, canal: str):
     """
-    Adds a new activity log to the Notion database.
+    Agrega un nuevo registro de actividad a la base de datos de Notion.
 
     Args:
-        id_member (str): The ID of the member.
-        entrada (bool): True if the member is connecting, False if disconnecting.
-        canal (str): The name of the channel.
+        id_member (str): El ID del miembro.
+        entrada (bool): True si el miembro se conecta, False si se desconecta.
+        canal (str): El nombre del canal.
     """
     try:
         notion.pages.create(
@@ -27,14 +27,14 @@ def add_activity_log(id_member: str, entrada: bool, canal: str):
             },
         )
     except Exception as e:
-        print(f"Error adding activity log to Notion: {e}")
+        print(f"Error al agregar el registro de actividad en Notion: {e}")
 
 def get_activity_logs_for_today():
     """
-    Retrieves all activity logs for the current day from the Notion database.
+    Recupera todos los registros de actividad del día actual desde la base de datos de Notion.
 
     Returns:
-        list: A list of activity log pages.
+        list: Una lista de páginas de registros de actividad.
     """
     try:
         today = datetime.now().strftime("%Y-%m-%d")
@@ -49,5 +49,6 @@ def get_activity_logs_for_today():
         )
         return response.get("results", [])
     except Exception as e:
-        print(f"Error getting activity logs from Notion: {e}")
+        print(f"Error al obtener los registros de actividad de Notion: {e}")
         return []
+

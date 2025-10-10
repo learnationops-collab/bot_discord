@@ -88,7 +88,7 @@ class ScheduledMessageTask(commands.Cog):
         except Exception as e:
             print(f"❌ Error general en la tarea de envío de mensajes: {e}")
 
-    @tasks.loop(time=datetime.time(hour=22, minute=0, tzinfo=pytz.timezone('America/Argentina/Buenos_Aires')))
+    @tasks.loop(time=datetime.time(hour=23, minute=50, tzinfo=pytz.timezone('America/Argentina/Buenos_Aires')))
     async def daily_activity_report(self):
         """
         Genera y envía un reporte diario de actividad en los canales de voz.

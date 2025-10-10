@@ -31,7 +31,7 @@ class DBManager:
         if self.notion is None:
             try:
                 self.notion = Client(auth=self.notion_token)
-                print("Cliente de Notion inicializado exitosamente.")
+                #print("Cliente de Notion inicializado exitosamente.")
             except Exception as e:
                 print(f"Error al inicializar el cliente de Notion: {e}")
                 self.notion = None
@@ -181,7 +181,7 @@ class DBManager:
                 parent={"database_id": self.notion_database_id},
                 properties=properties
             )
-            print(f"Recurso '{resource_name}' insertado en Notion.")
+            #print(f"Recurso '{resource_name}' insertado en Notion.")
             return True
         except Exception as e:
             print(f"Error al insertar el recurso '{resource_name}' en Notion: {e}")
@@ -234,7 +234,7 @@ class DBManager:
                     "difficulty": props.get("difficulty", {}).get("select", {}).get("name"),
                 }
                 resources.append(resource)
-            print(f"Recursos encontrados en Notion: {len(resources)}")
+            #print(f"Recursos encontrados en Notion: {len(resources)}")
         except Exception as e:
             print(f"Error al obtener recursos de Notion: {e}")
         return resources
@@ -302,17 +302,17 @@ class DBManager:
                 "property": "difficulty",
                 "select": {"equals": self._normalize_string(difficulty)}
             })
-            print(f"Filtrando por dificultad: {difficulty}")
+            #print(f"Filtrando por dificultad: {difficulty}")
         if category:
             filter_conditions.append({
                 "property": "category",
                 "select": {"equals": category}
             })
-            print(f"Filtrando por categoría: {category}")
+            #print(f"Filtrando por categoría: {category}")
         query_filter = {}
         if filter_conditions:
             query_filter["and"] = filter_conditions
-            print(f"Condiciones de filtro aplicadas: {query_filter}")
+            #print(f"Condiciones de filtro aplicadas: {query_filter}")
         try:
             pages = collect_paginated_api(
                 self.notion.databases.query,
@@ -322,7 +322,7 @@ class DBManager:
             for page in pages:
                 subcategory = page["properties"].get("subcategory", {}).get("select", {}).get("name")
                 if subcategory:
-                    print(f"Subcategoría encontrada: {subcategory}")
+                    #print(f"Subcategoría encontrada: {subcategory}")
                     subcategories.add(subcategory)
         except Exception as e:
             print(f"Error al obtener subcategorías distintas de Notion: {e}")
