@@ -125,6 +125,20 @@ class Commands(commands.Cog):
             return
 
         await bug_info_cog.start_bug_solved_flow(ctx.channel, ctx.author)
+
+    @commands.command(name='act_report', help='Genera y envía el reporte diario de actividad manualmente.')
+    @commands.has_permissions(administrator=True) # Opcional: Restringir a administradores
+    async def act_report(self, ctx):
+        """
+        Comando para generar manualmente el reporte de actividad diaria.
+        """
+        scheduled_task_cog = self.bot.get_cog('ScheduledMessageTask')
+        if scheduled_task_cog:
+            await ctx.send("Generando reporte de actividad...")
+            await scheduled_task_cog.daily_activity_report()
+            await ctx.send("Reporte generado.")
+        else:
+            await ctx.send("Error: El cog de tareas programadas no está cargado.")
     '''
     @commands.command(name='limpiar', help='Elimina un número específico de mensajes o todos los mensajes del canal.')
     @commands.has_permissions(manage_messages=True) # Requiere permiso para gestionar mensajes
