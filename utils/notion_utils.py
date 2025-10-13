@@ -65,26 +65,32 @@ def get_exit_logs_for_today():
     """
     try:
         today_utc = datetime.now(timezone.utc).date().isoformat()
-        
+        print(f"[DEBUG] Buscando registros de salida para la fecha (UTC): {today_utc}")
+
+        filter_query = {
+            "and": [
+                {
+                    "property": "fecha_hora",
+                    "date": {
+                        "on_or_after": today_utc
+                    }
+                },
+                {
+                    "property": "entrada",
+                    "checkbox": {
+                        "equals": False
+                    }
+                }
+            ]
+        }
+        print(f"[DEBUG] Filtro para la consulta a Notion: {filter_query}")
+
         response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
-            filter={
-                "and": [
-                    {
-                        "property": "fecha_hora",
-                        "date": {
-                            "on_or_after": today_utc
-                        }
-                    },
-                    {
-                        "property": "entrada",
-                        "checkbox": {
-                            "equals": False
-                        }
-                    }
-                ]
-            }
+            filter=filter_query
         )
+        print(f"[DEBUG] Respuesta de Notion API (get_exit_logs_for_today): {response}")
+
         return response.get("results", [])
     except Exception as e:
         print(f"Error al obtener los registros de salida de Notion: {e}")
