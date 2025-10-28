@@ -24,6 +24,7 @@ def add_activity_log(id_member: str, nombre: str, entrada: bool, canal: str, tie
 
     #print(f"[DEBUG] Propiedades para Notion: {properties}")
     try:
+        print(type(notion.databases))
         response = notion.pages.create(
             parent={"database_id": config.NOTION_DATABASE_ACTIVIDAD_ID},
             properties=properties,
@@ -44,6 +45,7 @@ def find_last_connection(id_member: str, canal: str):
     sort_params = [{"property": "fecha_hora", "direction": "descending"}]
     #print(f"[DEBUG] Parámetros de consulta para Notion: filter={filter_params}, sorts={sort_params}")
     try:
+        print(type(notion.databases))
         response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
             filter=filter_params,
@@ -64,6 +66,7 @@ def get_exit_logs_for_today():
     Recupera todos los registros de SALIDA de actividad del día actual desde Notion.
     """
     try:
+        print(type(notion.databases))
         today_utc = datetime.now(timezone.utc).date().isoformat()
         print(f"[DEBUG] Buscando registros de salida para la fecha (UTC): {today_utc}")
 
@@ -101,6 +104,7 @@ def get_exit_logs_for_date(target_date):
     Recupera todos los registros de SALIDA de actividad para una fecha específica desde Notion.
     """
     try:
+        print(type(notion.databases))
         start_date_utc = target_date.isoformat()
         end_date_utc = (target_date + timedelta(days=1)).isoformat()
         print(f"[DEBUG] Buscando registros de salida para la fecha (UTC): {start_date_utc}")
@@ -143,6 +147,7 @@ def get_activity_logs_for_today():
         list: Una lista de páginas de registros de actividad.
     """
     try:
+        print(type(notion.databases))
         today = datetime.now().strftime("%Y-%m-%d")
         response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
