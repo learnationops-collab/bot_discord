@@ -19,11 +19,9 @@ class ScheduledMessageTask(commands.Cog):
         self.db_manager = DBManager()
         self.timezone = pytz.timezone('UTC')
         self.send_scheduled_messages.start()
-        self.daily_activity_report.start()
 
     def cog_unload(self):
         self.send_scheduled_messages.cancel()
-        self.daily_activity_report.cancel()
 
     @tasks.loop(seconds=60)  # Revisa cada 60 segundos
     async def send_scheduled_messages(self):
@@ -88,20 +86,17 @@ class ScheduledMessageTask(commands.Cog):
         except Exception as e:
             print(f"❌ Error general en la tarea de envío de mensajes: {e}")
 
-    @tasks.loop(time=datetime.time(hour=23, minute=50, tzinfo=pytz.timezone('America/Argentina/Buenos_Aires')))
-    async def daily_activity_report(self):
+    async def daily_activity_report(self, report_channel, target_date):
         """
-        Genera y envía un reporte diario de actividad en los canales de voz, sumando el tiempo de conexión
-        basado en los registros de salida del día.
+        Genera y envía un reporte de actividad para una fecha específica, sumando el tiempo de conexión
+        basado en los registros de salida de ese día.
         """
-        print("Generando reporte diario de actividad...")
-        exit_logs = notion_utils.get_exit_logs_for_today()
+        print(f"Generando reporte de actividad para el {target_date.strftime('%d/%m/%Y')}...")
+        exit_logs = notion_utils.get_exit_logs_for_date(target_date)
 
         if not exit_logs:
-            print("No hay actividad de salida para reportar hoy.")
-            report_channel = self.bot.get_channel(config.TEST_CHANNEL_ID)
-            if report_channel:
-                await report_channel.send("No se registraron nuevas conexiones hoy.")
+            print(f"No hay actividad de salida para reportar en la fecha {target_date.strftime('%d/%m/%Y')}.")
+            await report_channel.send(f"No se registraron nuevas conexiones el {target_date.strftime('%d/%m/%Y')}.")
             return
 
         user_time = defaultdict(lambda: defaultdict(datetime.timedelta))
@@ -122,12 +117,11 @@ class ScheduledMessageTask(commands.Cog):
             if user_id and channel_name:
                 user_time[user_id][channel_name] += datetime.timedelta(seconds=duration_seconds)
 
-        report_channel = self.bot.get_channel(config.TEST_CHANNEL_ID)
         if not report_channel:
-            print(f"Error: No se encontró el canal de reporte con ID {config.TEST_CHANNEL_ID}")
+            print(f"Error: No se encontró el canal de reporte.")
             return
 
-        embed = discord.Embed(title="Reporte de Actividad Diario", color=discord.Color.blue())
+        embed = discord.Embed(title=f"Reporte de Actividad - {target_date.strftime('%d/%m/%Y')}", color=discord.Color.blue())
         for user_id, channels in user_time.items():
             try:
                 member = await self.bot.fetch_user(int(user_id))
@@ -147,7 +141,7 @@ class ScheduledMessageTask(commands.Cog):
         if embed.fields:
             await report_channel.send(embed=embed)
         else:
-            await report_channel.send("No se registró actividad medible hoy.")
+            await report_channel.send(f"No se registró actividad medible el {target_date.strftime('%d/%m/%Y')}.")
 
     @send_scheduled_messages.before_loop
     async def before_task_starts(self):

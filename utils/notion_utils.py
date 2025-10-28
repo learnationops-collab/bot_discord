@@ -1,6 +1,6 @@
 import os
 from notion_client import Client
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 import config
 
 # Inicializa el cliente de Notion
@@ -94,6 +94,45 @@ def get_exit_logs_for_today():
         return response.get("results", [])
     except Exception as e:
         print(f"Error al obtener los registros de salida de Notion: {e}")
+        return []
+
+def get_exit_logs_for_date(target_date):
+    """
+    Recupera todos los registros de SALIDA de actividad para una fecha específica desde Notion.
+    """
+    try:
+        start_date_utc = target_date.isoformat()
+        end_date_utc = (target_date + timedelta(days=1)).isoformat()
+        print(f"[DEBUG] Buscando registros de salida para la fecha (UTC): {start_date_utc}")
+
+        filter_query = {
+            "and": [
+                {
+                    "property": "fecha_hora",
+                    "date": {
+                        "on_or_after": start_date_utc,
+                        "before": end_date_utc
+                    }
+                },
+                {
+                    "property": "entrada",
+                    "checkbox": {
+                        "equals": False
+                    }
+                }
+            ]
+        }
+        print(f"[DEBUG] Filtro para la consulta a Notion: {filter_query}")
+
+        response = notion.databases.query(
+            database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
+            filter=filter_query
+        )
+        print(f"[DEBUG] Respuesta de Notion API (get_exit_logs_for_date): {response}")
+
+        return response.get("results", [])
+    except Exception as e:
+        print(f"Error al obtener los registros de salida de Notion para la fecha {target_date}: {e}")
         return []
 
 def get_activity_logs_for_today():

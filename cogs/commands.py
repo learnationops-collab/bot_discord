@@ -3,6 +3,8 @@
 import discord
 from discord.ext import commands
 import asyncio # Necesario para el sleep en el comando limpiar
+import datetime
+import pytz
 
 import config # Importa la configuración para acceder a user_conversations
 from utils.helpers import get_help_message # Importa la función de ayuda
@@ -126,20 +128,34 @@ class Commands(commands.Cog):
 
         await bug_info_cog.start_bug_solved_flow(ctx.channel, ctx.author)
 
-    @commands.command(name='act_report', help='Genera y envía el reporte diario de actividad manualmente.')
-    @commands.has_permissions(administrator=True) # Opcional: Restringir a administradores
-    async def act_report(self, ctx):
+    @commands.command(name='act_report', help='Genera y envía el reporte de actividad para una fecha específica (dd/mm/aaaa).')
+    @commands.has_permissions(administrator=True)
+    async def act_report(self, ctx, fecha: str = None):
         """
-        Comando para generar manualmente el reporte de actividad diaria.
+        Genera y envía el reporte de actividad para una fecha específica.
+        Si no se proporciona una fecha, se utiliza la fecha actual.
+        Formato de fecha esperado: dd/mm/aaaa
         """
-        scheduled_task_cog = self.bot.get_cog('ScheduledMessageTask')
-        if scheduled_task_cog:
-            await ctx.send("Generando reporte de actividad...")
-            await scheduled_task_cog.daily_activity_report()
-            await ctx.send("Reporte generado.")
-        else:
-            await ctx.send("Error: El cog de tareas programadas no está cargado.")
-    '''
+        try:
+            if fecha:
+                # Intenta convertir la fecha proporcionada al formato correcto
+                target_date = datetime.datetime.strptime(fecha, '%d/%m/%Y').date()
+            else:
+                # Si no se proporciona fecha, usa la fecha actual en UTC
+                target_date = datetime.datetime.now(pytz.utc).date()
+
+            scheduled_task_cog = self.bot.get_cog('ScheduledMessageTask')
+            if scheduled_task_cog:
+                await ctx.send(f"Generando reporte de actividad para el {target_date.strftime('%d/%m/%Y')}...")
+                # Llama a la función del cog con el canal actual y la fecha objetivo
+                await scheduled_task_cog.daily_activity_report(ctx.channel, target_date)
+            else:
+                await ctx.send("Error: El cog de tareas programadas no está cargado.")
+        except ValueError:
+            await ctx.send("❌ Formato de fecha incorrecto. Por favor, usa `dd/mm/aaaa`.")
+        except Exception as e:
+            await ctx.send(f"Ocurrió un error al generar el reporte: {e}")
+
     @commands.command(name='limpiar', help='Elimina un número específico de mensajes o todos los mensajes del canal.')
     @commands.has_permissions(manage_messages=True) # Requiere permiso para gestionar mensajes
     async def limpiar(self, ctx, cantidad_o_asterisco: str):
@@ -190,7 +206,7 @@ class Commands(commands.Cog):
         else:
             await ctx.send(f"❌ Ocurrió un error inesperado con el comando limpiar: `{error}`") # No eliminar el mensaje
             print(f"Error inesperado en limpiar_error: {error}")
-    '''
+
 
 # La función setup es necesaria para que Discord.py cargue el cog
 async def setup(bot):
