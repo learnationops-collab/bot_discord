@@ -1,7 +1,6 @@
 import os
 from dotenv import load_dotenv
 from notion_client import Client
-from notion_client.helpers import collect_paginated_api
 import unicodedata
 import datetime
 
@@ -67,11 +66,18 @@ class DBManager:
                 ]
             }
             #print(f"Debug: Ejecutando consulta en la base de datos de mensajes con filtro: {query_filter}")
-            pages = collect_paginated_api(
-                self.notion.databases.query,
-                database_id=self.notion_database_mensajes_id,
-                filter=query_filter
-            )
+            pages = []
+            has_more = True
+            start_cursor = None
+            while has_more:
+                response = self.notion.search(
+                    database_id=self.notion_database_mensajes_id,
+                    filter=query_filter,
+                    start_cursor=start_cursor
+                )
+                pages.extend(response.get("results"))
+                has_more = response.get("has_more")
+                start_cursor = response.get("next_cursor")
             #print(f"Debug: Se recibieron {len(pages)} páginas de la consulta.")
 
             messages = []
@@ -219,11 +225,18 @@ class DBManager:
                 query_filter["and"] = filter_conditions
         resources = []
         try:
-            pages = collect_paginated_api(
-                self.notion.databases.query,
-                database_id=self.notion_database_id,
-                filter=query_filter
-            )
+            pages = []
+            has_more = True
+            start_cursor = None
+            while has_more:
+                response = self.notion.search(
+                    database_id=self.notion_database_id,
+                    filter=query_filter,
+                    start_cursor=start_cursor
+                )
+                pages.extend(response.get("results"))
+                has_more = response.get("has_more")
+                start_cursor = response.get("next_cursor")
             for page in pages:
                 props = page["properties"]
                 resource = {
@@ -246,10 +259,17 @@ class DBManager:
             return []
         difficulties = set()
         try:
-            pages = collect_paginated_api(
-                self.notion.databases.query,
-                database_id=self.notion_database_id
-            )
+            pages = []
+            has_more = True
+            start_cursor = None
+            while has_more:
+                response = self.notion.search(
+                    database_id=self.notion_database_id,
+                    start_cursor=start_cursor
+                )
+                pages.extend(response.get("results"))
+                has_more = response.get("has_more")
+                start_cursor = response.get("next_cursor")
             for page in pages:
                 difficulty = page["properties"].get("difficulty", {}).get("select", {}).get("name")
                 if difficulty:
@@ -274,11 +294,18 @@ class DBManager:
         if filter_conditions:
             query_filter["and"] = filter_conditions
         try:
-            pages = collect_paginated_api(
-                self.notion.databases.query,
-                database_id=self.notion_database_id,
-                filter=query_filter
-            )
+            pages = []
+            has_more = True
+            start_cursor = None
+            while has_more:
+                response = self.notion.search(
+                    database_id=self.notion_database_id,
+                    filter=query_filter,
+                    start_cursor=start_cursor
+                )
+                pages.extend(response.get("results"))
+                has_more = response.get("has_more")
+                start_cursor = response.get("next_cursor")
             for page in pages:
                 category = page["properties"].get("category", {}).get("select", {}).get("name")
                 if category:
@@ -314,11 +341,18 @@ class DBManager:
             query_filter["and"] = filter_conditions
             #print(f"Condiciones de filtro aplicadas: {query_filter}")
         try:
-            pages = collect_paginated_api(
-                self.notion.databases.query,
-                database_id=self.notion_database_id,
-                filter=query_filter
-            )
+            pages = []
+            has_more = True
+            start_cursor = None
+            while has_more:
+                response = self.notion.search(
+                    database_id=self.notion_database_id,
+                    filter=query_filter,
+                    start_cursor=start_cursor
+                )
+                pages.extend(response.get("results"))
+                has_more = response.get("has_more")
+                start_cursor = response.get("next_cursor")
             for page in pages:
                 subcategory = page["properties"].get("subcategory", {}).get("select", {}).get("name")
                 if subcategory:
