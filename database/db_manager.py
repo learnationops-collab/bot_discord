@@ -70,7 +70,7 @@ class DBManager:
             has_more = True
             start_cursor = None
             while has_more:
-                response = self.notion.search(
+                response = self.notion.databases.query(
                     database_id=self.notion_database_mensajes_id,
                     filter=query_filter,
                     start_cursor=start_cursor
@@ -229,7 +229,7 @@ class DBManager:
             has_more = True
             start_cursor = None
             while has_more:
-                response = self.notion.search(
+                response = self.notion.databases.query(
                     database_id=self.notion_database_id,
                     filter=query_filter,
                     start_cursor=start_cursor
@@ -263,7 +263,7 @@ class DBManager:
             has_more = True
             start_cursor = None
             while has_more:
-                response = self.notion.search(
+                response = self.notion.databases.query(
                     database_id=self.notion_database_id,
                     start_cursor=start_cursor
                 )
@@ -298,7 +298,7 @@ class DBManager:
             has_more = True
             start_cursor = None
             while has_more:
-                response = self.notion.search(
+                response = self.notion.databases.query(
                     database_id=self.notion_database_id,
                     filter=query_filter,
                     start_cursor=start_cursor
@@ -345,7 +345,7 @@ class DBManager:
             has_more = True
             start_cursor = None
             while has_more:
-                response = self.notion.search(
+                response = self.notion.databases.query(
                     database_id=self.notion_database_id,
                     filter=query_filter,
                     start_cursor=start_cursor
