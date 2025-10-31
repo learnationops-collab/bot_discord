@@ -4,7 +4,7 @@ import discord
 from discord.ext import commands
 import config # Importa la configuración desde el módulo config
 from utils import notion_utils # Importa el módulo de utilidades de Notion
-from datetime import datetime
+from datetime import datetime, timezone
 
 class Events(commands.Cog):
     """
@@ -110,9 +110,8 @@ class Events(commands.Cog):
                 tiempo_coneccion = None
                 if last_connection:
                     connection_time_str = last_connection['properties']['fecha_hora']['date']['start']
-                    connection_time_aware = datetime.fromisoformat(connection_time_str)
-                    connection_time_naive = connection_time_aware.replace(tzinfo=None)
-                    tiempo_coneccion = int((datetime.now() - connection_time_naive).total_seconds())
+                    connection_time = datetime.fromisoformat(connection_time_str)
+                    tiempo_coneccion = int((datetime.now(timezone.utc) - connection_time).total_seconds())
 
                 notion_utils.add_activity_log(
                     id_member=str(member.id),
