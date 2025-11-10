@@ -68,7 +68,7 @@ def get_exit_logs_for_today():
     try:
         print(type(notion.databases))
         today_utc = datetime.now(timezone.utc).date().isoformat()
-        print(f"[DEBUG] Buscando registros de salida para la fecha (UTC): {today_utc}")
+        #print(f"[DEBUG] Buscando registros de salida para la fecha (UTC): {today_utc}")
 
         filter_query = {
             "and": [
@@ -86,13 +86,13 @@ def get_exit_logs_for_today():
                 }
             ]
         }
-        print(f"[DEBUG] Filtro para la consulta a Notion: {filter_query}")
+        #print(f"[DEBUG] Filtro para la consulta a Notion: {filter_query}")
 
         response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
             filter=filter_query
         )
-        print(f"[DEBUG] Respuesta de Notion API (get_exit_logs_for_today): {response}")
+        #print(f"[DEBUG] Respuesta de Notion API (get_exit_logs_for_today): {response}")
 
         return response.get("results", [])
     except Exception as e:
@@ -107,7 +107,7 @@ def get_exit_logs_for_date(target_date):
         print(type(notion.databases))
         start_date_utc = target_date.isoformat()
         end_date_utc = (target_date + timedelta(days=1)).isoformat()
-        print(f"[DEBUG] Buscando registros de salida para la fecha (UTC): {start_date_utc}")
+        #print(f"[DEBUG] Buscando registros de salida para la fecha (UTC): {start_date_utc}")
 
         filter_query = {
             "and": [
@@ -126,13 +126,13 @@ def get_exit_logs_for_date(target_date):
                 }
             ]
         }
-        print(f"[DEBUG] Filtro para la consulta a Notion: {filter_query}")
+        #print(f"[DEBUG] Filtro para la consulta a Notion: {filter_query}")
 
         response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
             filter=filter_query
         )
-        print(f"[DEBUG] Respuesta de Notion API (get_exit_logs_for_date): {response}")
+        #print(f"[DEBUG] Respuesta de Notion API (get_exit_logs_for_date): {response}")
 
         return response.get("results", [])
     except Exception as e:
