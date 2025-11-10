@@ -46,7 +46,7 @@ def find_last_connection(id_member: str, canal: str):
     #print(f"[DEBUG] Parámetros de consulta para Notion: filter={filter_params}, sorts={sort_params}")
     try:
         print(type(notion.databases))
-        response = notion.search(
+        response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
             filter=filter_params,
             sorts=sort_params,
@@ -88,7 +88,7 @@ def get_exit_logs_for_today():
         }
         print(f"[DEBUG] Filtro para la consulta a Notion: {filter_query}")
 
-        response = notion.search(
+        response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
             filter=filter_query
         )
@@ -128,7 +128,7 @@ def get_exit_logs_for_date(target_date):
         }
         print(f"[DEBUG] Filtro para la consulta a Notion: {filter_query}")
 
-        response = notion.search(
+        response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
             filter=filter_query
         )
@@ -149,7 +149,7 @@ def get_activity_logs_for_today():
     try:
         print(type(notion.databases))
         today = datetime.now().strftime("%Y-%m-%d")
-        response = notion.search(
+        response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
             filter={
                 "property": "fecha_hora",
