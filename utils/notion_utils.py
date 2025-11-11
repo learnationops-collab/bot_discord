@@ -7,7 +7,6 @@ import config
 notion = Client(auth=os.getenv("NOTION_TOKEN"))
 
 def add_activity_log(id_member: str, nombre: str, entrada: bool, canal: str, tiempo_coneccion: int = None):
-    #print(f"[DEBUG] add_activity_log llamada con: id_member={id_member}, nombre={nombre}, entrada={entrada}, canal={canal}, tiempo_coneccion={tiempo_coneccion}")
     
     # Usar `now(timezone.utc)` para asegurar que la fecha y hora estén en UTC.
     now_utc = datetime.now(timezone.utc).isoformat()
@@ -22,19 +21,15 @@ def add_activity_log(id_member: str, nombre: str, entrada: bool, canal: str, tie
     if tiempo_coneccion is not None:
         properties["tiempo_coneccion"] = {"number": tiempo_coneccion}
 
-    #print(f"[DEBUG] Propiedades para Notion: {properties}")
     try:
-        print(type(notion.databases))
         response = notion.pages.create(
             parent={"database_id": config.NOTION_DATABASE_ACTIVIDAD_ID},
             properties=properties,
         )
-        #print(f"[DEBUG] Respuesta de Notion API (add_activity_log): {response}")
     except Exception as e:
         print(f"Error al agregar el registro de actividad en Notion: {e}")
 
 def find_last_connection(id_member: str, canal: str):
-    #print(f"[DEBUG] find_last_connection llamada con: id_member={id_member}, canal={canal}")
     filter_params = {
         "and": [
             {"property": "id_member", "title": {"equals": id_member}},
@@ -43,16 +38,13 @@ def find_last_connection(id_member: str, canal: str):
         ]
     }
     sort_params = [{"property": "fecha_hora", "direction": "descending"}]
-    #print(f"[DEBUG] Parámetros de consulta para Notion: filter={filter_params}, sorts={sort_params}")
     try:
-        print(type(notion.databases))
         response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
             filter=filter_params,
             sorts=sort_params,
             page_size=1,
         )
-        #print(f"[DEBUG] Respuesta de Notion API (find_last_connection): {response}")
         results = response.get("results")
         if results:
             return results[0]
@@ -66,9 +58,7 @@ def get_exit_logs_for_today():
     Recupera todos los registros de SALIDA de actividad del día actual desde Notion.
     """
     try:
-        print(type(notion.databases))
         today_utc = datetime.now(timezone.utc).date().isoformat()
-        #print(f"[DEBUG] Buscando registros de salida para la fecha (UTC): {today_utc}")
 
         filter_query = {
             "and": [
@@ -86,13 +76,11 @@ def get_exit_logs_for_today():
                 }
             ]
         }
-        #print(f"[DEBUG] Filtro para la consulta a Notion: {filter_query}")
 
         response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
             filter=filter_query
         )
-        #print(f"[DEBUG] Respuesta de Notion API (get_exit_logs_for_today): {response}")
 
         return response.get("results", [])
     except Exception as e:
@@ -104,18 +92,22 @@ def get_exit_logs_for_date(target_date):
     Recupera todos los registros de SALIDA de actividad para una fecha específica desde Notion.
     """
     try:
-        print(type(notion.databases))
-        start_date_utc = target_date.isoformat()
-        end_date_utc = (target_date + timedelta(days=1)).isoformat()
-        #print(f"[DEBUG] Buscando registros de salida para la fecha (UTC): {start_date_utc}")
+        # Convertir la fecha a un objeto datetime en UTC al inicio del día
+        start_of_day_utc = datetime(target_date.year, target_date.month, target_date.day, tzinfo=timezone.utc)
+        # El final del día es el inicio del día siguiente
+        end_of_day_utc = start_of_day_utc + timedelta(days=1)
+
+        # Formatear las fechas a ISO 8601 para la API de Notion
+        start_date_iso = start_of_day_utc.isoformat()
+        end_date_iso = end_of_day_utc.isoformat()
 
         filter_query = {
             "and": [
                 {
                     "property": "fecha_hora",
                     "date": {
-                        "on_or_after": start_date_utc,
-                        "before": end_date_utc
+                        "on_or_after": start_date_iso,
+                        "before": end_date_iso
                     }
                 },
                 {
@@ -126,13 +118,11 @@ def get_exit_logs_for_date(target_date):
                 }
             ]
         }
-        #print(f"[DEBUG] Filtro para la consulta a Notion: {filter_query}")
 
         response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
             filter=filter_query
         )
-        #print(f"[DEBUG] Respuesta de Notion API (get_exit_logs_for_date): {response}")
 
         return response.get("results", [])
     except Exception as e:
@@ -147,14 +137,13 @@ def get_activity_logs_for_today():
         list: Una lista de páginas de registros de actividad.
     """
     try:
-        print(type(notion.databases))
-        today = datetime.now().strftime("%Y-%m-%d")
+        today_utc = datetime.now(timezone.utc).date().isoformat()
         response = notion.databases.query(
             database_id=config.NOTION_DATABASE_ACTIVIDAD_ID,
             filter={
                 "property": "fecha_hora",
                 "date": {
-                    "on_or_after": today
+                    "on_or_after": today_utc
                 }
             }
         )
