@@ -75,6 +75,21 @@ class BugInfo(commands.Cog):
         """
         Inicia un flujo de preguntas para saber cómo se resolvió el problema.
         """
+        # Intentar recuperar la información del reporte original desde el historial del canal
+        platform = "No encontrado"
+        problem_description = "No encontrado"
+        
+        async for message in channel.history(limit=50, oldest_first=True):
+            if message.author == self.bot.user and message.embeds:
+                embed = message.embeds[0]
+                if embed.title == "🐞 Nuevo Reporte de Bug":
+                    for field in embed.fields:
+                        if field.name == "Plataforma":
+                            platform = field.value
+                        elif field.name == "Descripción del Problema":
+                            problem_description = field.value
+                    break
+        
         await channel.send(f"¡Hola, {member.mention}! Responde a las siguientes preguntas para documentar la solución del bug. El canal se cerrará una vez finalizado el proceso.")
         
         questions = [
@@ -105,6 +120,10 @@ class BugInfo(commands.Cog):
         )
         if member.avatar:
             embed.set_thumbnail(url=member.avatar.url)
+        
+        # Añadir campos de la información original
+        embed.add_field(name="Plataforma", value=platform, inline=False)
+        embed.add_field(name="Problema Solucionado", value=problem_description, inline=False)
         
         embed.add_field(name="Soluciones Implementadas", value=answers.get("answer_1", "N/A"), inline=False)
         embed.add_field(name="Solución Final", value=answers.get("answer_2", "N/A"), inline=False)
