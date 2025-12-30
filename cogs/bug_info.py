@@ -101,6 +101,7 @@ class BugInfo(commands.Cog):
 
         # Compilar el reporte de la solución
         plataforma = "No especificada"
+        descripcion_problema = "No especificada"
         if channel.topic and "ID del reporte de bug: " in channel.topic:
             try:
                 report_id = int(channel.topic.split("ID del reporte de bug: ")[1])
@@ -111,7 +112,8 @@ class BugInfo(commands.Cog):
                         for field in report_message.embeds[0].fields:
                             if field.name == "Plataforma":
                                 plataforma = field.value
-                                break
+                            elif field.name == "Descripción del Problema":
+                                descripcion_problema = field.value
             except (ValueError, discord.NotFound, discord.Forbidden):
                 pass
 
@@ -124,6 +126,7 @@ class BugInfo(commands.Cog):
             embed.set_thumbnail(url=member.avatar.url)
         
         embed.add_field(name="Plataforma", value=plataforma, inline=False)
+        embed.add_field(name="Descripción del Problema", value=descripcion_problema, inline=False)
         embed.add_field(name="Solución Final", value=answers.get("answer_1", "N/A"), inline=False)
         embed.add_field(name="Detalles: ", value=answers.get("answer_2", "N/A"), inline=False)
         embed.add_field(name="Información a tener en cuenta", value=answers.get("answer_3", "N/A"), inline=False)
